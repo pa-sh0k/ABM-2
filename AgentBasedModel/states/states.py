@@ -54,7 +54,7 @@ def test_trend_ols(values) -> dict:
     }
 
 
-def trend(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .1) -> bool or list:
+def trend(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .01) -> bool or list:
     prices = info.prices[window:]
 
     if size is None:
@@ -69,7 +69,7 @@ def trend(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = 
     return res
 
 
-def panic(info: SimulatorInfo, size: int = None, window: int = 5, th: float = 1.9) -> bool or list:
+def panic(info: SimulatorInfo, size: int = None, window: int = 5, th: float = 0.5) -> bool or list:
     volatility = info.price_volatility(window)
     if size is None:
         return any(v > th for v in volatility)
@@ -77,11 +77,11 @@ def panic(info: SimulatorInfo, size: int = None, window: int = 5, th: float = 1.
     res = list()
     for i in range(len(volatility) // size):
         sl = volatility[i*size:(i+1)*size]
-        res.append(any(v > th for v in sl))
+        res.append(any(v > math.mean(volatility) * th for v in sl))
     return res
 
 
-def disaster(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .06) -> bool or list:
+def disaster(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .02) -> bool or list:
     volatility = info.price_volatility(window)
     if size is None:
         test = test_trend_ols(volatility)
@@ -94,7 +94,7 @@ def disaster(info: SimulatorInfo, size: int = None, window: int = 5, conf: float
     return res
 
 
-def mean_rev(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = -.06) -> bool or list:
+def mean_rev(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = -.02) -> bool or list:
     volatility = info.price_volatility(window)
     if size is None:
         test = test_trend_ols(volatility)
@@ -115,12 +115,12 @@ def general_states(info: SimulatorInfo, size: int = 10, window: int = 5) -> str 
 
     res = list()
     for t, p, d, mr in zip(states_trend, states_panic, states_disaster, states_mean_rev):
-        if d:
+        if mr:
+            res.append('mean-rev')
+        elif d:
             res.append('disaster')
         elif p:
             res.append('panic')
-        elif mr:
-            res.append('mean-rev')
         elif t:
             res.append('trend')
         else:

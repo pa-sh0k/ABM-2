@@ -5,33 +5,34 @@ import random
 
 class ExchangeAgent:
     """
-    ExchangeAgent implements automatic orders handling within the order book. It supports limit orders,
-    market orders, cancel orders, returns current spread prices and volumes.
+    ExchangeAgent implements automatic orders handling within the order book
     """
     id = 0
 
     def __init__(self, price: float or int = 100, std: float or int = 25, volume: int = 1000, rf: float = 5e-4,
                  transaction_cost: float = 0):
         """
-        Initialization parameters
+        Creates ExchangeAgent with initialised order book and future dividends
+
         :param price: stock initial price
-        :param std: standard deviation of order prices in book
-        :param volume: number of orders in book
-        :param rf: risk-free rate (interest rate for cash holdings of agents)
-        :param transaction_cost: cost that is paid on each successful deal
+        :param std: standard deviation of order prices
+        :param volume: number of orders initialised
+        :param rf: risk-free rate
+        :param transaction_cost: transaction cost on operations for traders
         """
         self.name = f'ExchangeAgent{self.id}'
+        self.id = ExchangeAgent.id
         ExchangeAgent.id += 1
 
         self.order_book = {'bid': OrderList('bid'), 'ask': OrderList('ask')}
-        self.dividend_book = list()  # list of future dividends
+        self.dividend_book = list()  # act like queue
         self.risk_free = rf
         self.transaction_cost = transaction_cost
-        self._fill_book(price, std, volume, rf * price)
+        self._fill_book(price, std, volume, rf * price)  # initialise both order book and dividend book
 
     def generate_dividend(self):
         """
-        Generate time series on future dividends.
+        Add new dividend to queue and pop last
         """
         # Generate future dividend
         d = self.dividend_book[-1] * self._next_dividend()
@@ -40,7 +41,13 @@ class ExchangeAgent:
 
     def _fill_book(self, price, std, volume, div: float = 0.05):
         """
-        Fill order book with random orders. Fill dividend book with n future dividends.
+        Fill order book with random orders and fill dividend book with future dividends.
+
+        **Order book:** generate prices from normal distribution with *std*, and *price* as center; generate
+        quantities for these orders from uniform distribution with 1, 5 bounds. Set bid orders when
+        order price is less than *price*, set ask orders when order price is greater than *price*.
+
+        **Dividend book:** add 100 dividends using *_next_dividend* method.
         """
         # Order book
         prices1 = [round(random.normalvariate(price - std, std), 1) for _ in range(volume // 2)]
@@ -62,32 +69,36 @@ class ExchangeAgent:
 
     def _clear_book(self):
         """
-        Clears glass from orders with 0 qty.
-
-        complexity O(n)
-
-        :return: void
+        **(UNUSED)** Clear order book from orders with 0 quantity.
         """
         self.order_book['bid'] = OrderList.from_list([order for order in self.order_book['bid'] if order.qty > 0])
         self.order_book['ask'] = OrderList.from_list([order for order in self.order_book['ask'] if order.qty > 0])
 
     def spread(self) -> dict or None:
         """
+        Returns best bid and ask prices as dictionary
+
         :return: {'bid': float, 'ask': float}
         """
         if self.order_book['bid'] and self.order_book['ask']:
             return {'bid': self.order_book['bid'].first.price, 'ask': self.order_book['ask'].first.price}
-        return None
+        raise Exception(f'There no either bid or ask orders')
 
     def spread_volume(self) -> dict or None:
         """
+        **(UNUSED)** Returns best bid and ask volumes as dictionary
+
         :return: {'bid': float, 'ask': float}
         """
         if self.order_book['bid'] and self.order_book['ask']:
             return {'bid': self.order_book['bid'].first.qty, 'ask': self.order_book['ask'].first.qty}
-        return None
+        raise Exception(f'There no either bid or ask orders')
 
-    def price(self) -> float or None:
+    def price(self) -> float:
+        """
+        Returns current stock price as mean between best bid and ask prices
+        """
+
         spread = self.spread()
         if spread:
             return round((spread['bid'] + spread['ask']) / 2, 1)
@@ -95,8 +106,9 @@ class ExchangeAgent:
 
     def dividend(self, access: int = None) -> list or float:
         """
-        Returns current dividend payment value. If called by a trader, returns n future dividends
-        given information access.
+        Returns either current dividend or *access* future dividends (if called by trader)
+
+        :param access: the number of future dividends accessed by a trader
         """
         if access is None:
             return self.dividend_book[0]
@@ -107,11 +119,6 @@ class ExchangeAgent:
         return exp(random.normalvariate(0, std))
 
     def limit_order(self, order: Order):
-        """
-        Executes limit order, fulfilling orders if on other side of spread
-
-        :return: void
-        """
         bid, ask = self.spread().values()
         t_cost = self.transaction_cost
         if not bid or not ask:
@@ -131,11 +138,6 @@ class ExchangeAgent:
                 self.order_book['ask'].insert(order)
 
     def market_order(self, order: Order) -> Order:
-        """
-        Executes market order, fulfilling orders on the other side of spread
-
-        :return: Order
-        """
         t_cost = self.transaction_cost
         if order.order_type == 'bid':
             order = self.order_book['ask'].fulfill(order, t_cost)
@@ -144,11 +146,6 @@ class ExchangeAgent:
         return order
 
     def cancel_order(self, order: Order):
-        """
-        Cancel order from order book
-
-        :return: void
-        """
         if order.order_type == 'bid':
             self.order_book['bid'].remove(order)
         elif order.order_type == 'ask':
@@ -156,13 +153,16 @@ class ExchangeAgent:
 
 
 class Trader:
+    """
+    Trader basic interface
+    """
     id = 0
 
     def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0):
         """
-        Trader that is activated on call to perform action.
+        Trader that is activated on call to perform action
 
-        :param market: link to exchange agent
+        :param markets: link to exchange agent
         :param cash: trader's cash available
         :param assets: trader's number of shares hold
         """
@@ -172,7 +172,7 @@ class Trader:
         Trader.id += 1
 
         self.market = market
-        self.orders = list()
+        self.orders = list()  # list of orders sitting in the order book
 
         self.cash = cash
         self.assets = assets
@@ -221,6 +221,7 @@ class Random(Trader):
     """
     Random creates noisy orders to recreate trading in real environment.
     """
+
     def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0):
         super().__init__(market, cash, assets)
         self.type = 'Random'
@@ -233,9 +234,11 @@ class Random(Trader):
     @staticmethod
     def draw_price(order_type, spread: dict, std: float or int = 2.5) -> float:
         """
-        Draw price for limit order of Noise Agent. The price is calculated as:
-        1) 35% - within the spread - uniform distribution
-        2) 65% - out of the spread - delta from best price is exponential distribution r.v.
+        Draw price for limit order. The price is calculated as:
+
+        - 0.35 probability: within the spread - uniform distribution
+        - 0.65 probability: out of the spread - delta from best price is exponential distribution r.v.
+        :return: order price
         """
         random_state = random.random()  # Determines IN spread OR OUT of spread
 
@@ -254,11 +257,11 @@ class Random(Trader):
     @staticmethod
     def draw_quantity(a=1, b=5) -> float:
         """
-        Draw random quantity to buy from uniform distribution.
+        Draw order quantity for limit or market order. The quantity is drawn from U[a,b]
 
         :param a: minimal quantity
         :param b: maximal quantity
-        :return: quantity for order
+        :return: order quantity
         """
         return random.randint(a, b)
 
@@ -301,11 +304,9 @@ class Random(Trader):
 
 class Fundamentalist(Trader):
     """
-    Fundamentalist traders strictly believe in the information they receive. If they find an ask
-    order with a price lower or a bid order with a price higher than their estimated present
-    value, i.e. E(V|Ij,k), they accept the limit order, otherwise they put a new limit order
-    between the former best bid and best ask prices.
+    Fundamentalist evaluate stock value using Constant Dividend Model. Then places orders accordingly
     """
+    
     def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0, access: int = 1):
         """
         :param market: exchange agent link
@@ -320,9 +321,12 @@ class Fundamentalist(Trader):
     @staticmethod
     def evaluate(dividends: list, risk_free: float):
         """
-        Evaluate stock using constant dividend model.
+        Evaluates the stock using Constant Dividend Model.
+
+        We first sum all known (based on *access*) discounted dividends. Then calculate perpetual value
+        of the stock based on last known dividend.
         """
-        divs = dividends  # expected value of future dividends
+        divs = dividends  # known future dividends
         r = risk_free  # risk-free rate
 
         perp = divs[-1] / r / (1 + r)**(len(divs) - 1)  # perpetual payments
@@ -331,6 +335,15 @@ class Fundamentalist(Trader):
 
     @staticmethod
     def draw_quantity(pf, p, gamma: float = 5e-3):
+        """
+        Draw order quantity for limit or market order. The quantity depends on difference between fundamental
+        value and market price.
+
+        :param pf: fundamental value
+        :param p: market price
+        :param gamma: dependency coefficient
+        :return: order quantity
+        """
         q = round(abs(pf - p) / p / gamma)
         return min(q, 5)
 
@@ -381,11 +394,12 @@ class Fundamentalist(Trader):
 
 class Chartist(Trader):
     """
-    Chartist traders are searching for trends in the price movements. Each trader has sentiment - opinion
+    Chartists are searching for trends in the price movements. Each trader has sentiment - opinion
     about future price movement (either increasing, or decreasing). Based on sentiment trader either
     buys stock or sells. Sentiment revaluation happens at the end of each iteration based on opinion
-    propagation among other chartists, current price changes.
+    propagation among other chartists, current price changes
     """
+
     def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0):
         """
         :param market: exchange agent link
@@ -397,10 +411,6 @@ class Chartist(Trader):
         self.sentiment = 'Optimistic' if random.random() > .5 else 'Pessimistic'
 
     def call(self):
-        """
-        If 'steps' consecutive steps of upward (downward) price movements -> buy (sell) market order. If there are no
-        such trend, act as random trader placing only limit orders.
-        """
         random_state = random.random()
         t_cost = self.market.transaction_cost
         spread = self.market.spread()
@@ -430,7 +440,7 @@ class Chartist(Trader):
 
     def change_sentiment(self, info, a1=1, a2=1, v1=.1):
         """
-        Change sentiment
+        Revaluate chartist's opinion about future price movement
 
         :param info: SimulatorInfo
         :param a1: importance of chartists opinion
@@ -457,13 +467,10 @@ class Chartist(Trader):
             if prob > random.random():
                 self.sentiment = 'Optimistic'
 
-        # print('sentiment', prob)
-
 
 class Universalist(Fundamentalist, Chartist):
     """
-    Universalist mixes Fundamentalist, Chartist trading strategies, and allows to change from
-    one strategy to another.
+    Universalist mixes Fundamentalist, Chartist trading strategies allowing to change one strategy to another
     """
     def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0, access: int = 1):
         """

@@ -8,6 +8,7 @@ class Simulator:
     """
     Simulator is responsible for launching agents' actions and executing scenarios
     """
+
     def __init__(self, exchange: ExchangeAgent = None, traders: list = None, events: list = None):
         self.exchange = exchange
         self.events = [event.link(self) for event in events] if events else None  # link all events to simulator
@@ -72,23 +73,6 @@ class SimulatorInfo:
         self.types = list()  # agent: current type
         self.sentiments = list()  # agent: current sentiment
         self.returns = [{tr_id: 0 for tr_id in self.traders.keys()}]  # agent: iteration return
-
-        """
-        # Market Statistics
-        self.prices = list()  # price at the end of iteration
-        self.spreads = list()  # bid-ask spreads
-        self.spread_sizes = list()  # bid-ask spread sizes
-        self.dividends = list()
-        self.orders_quantities = list()  # list -> (bid, ask)
-        self.orders_volumes = list()  # list -> (bid, ask) -> (sum, mean, q1, q3, std)
-        self.orders_prices = list()  # list -> (bid, ask) -> (mean, q1, q3, std)
-
-        # Agent Statistics
-        self.equity = list()  # sum of equity of agents
-        self.cash = list()  # sum of cash of agents
-        self.assets_qty = list()  # sum of number of assets of agents
-        self.assets_value = list()  # sum of value of assets of agents
-        """
 
     def capture(self):
         """
