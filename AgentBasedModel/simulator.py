@@ -1,5 +1,5 @@
-from AgentBasedModel.agents import ExchangeAgent, Universalist, Chartist, Fundamentalist
-from AgentBasedModel.utils.math import mean, std, difference, rolling
+from AgentBasedModel.traders import ExchangeAgent, Universalist, Chartist, Fundamentalist
+from AgentBasedModel.utils.math import mean, std, rolling
 import random
 from tqdm import tqdm
 

@@ -1,5 +1,5 @@
 from AgentBasedModel.simulator import Simulator
-from AgentBasedModel.agents import Trader, Universalist, Fundamentalist, MarketMaker
+from AgentBasedModel.traders import Trader, Universalist, Fundamentalist, MarketMaker
 from AgentBasedModel.utils.orders import Order
 from itertools import chain
 
