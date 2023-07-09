@@ -159,19 +159,19 @@ class Fundamentalist(Trader):
     Fundamentalist evaluate stock value using Constant Dividend Model. Then places orders accordingly
     """
     
-    def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0, access: int = 1):
+    def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0, access: int = 0):
         """
         :param market: exchange agent link
         :param cash: number of cash
         :param assets: number of assets
-        :param access: number of future dividends informed
+        :param access: access >= 0, number of future dividends informed, 0 - informed only of current dividend
         """
         super().__init__(market, cash, assets)
         self.type = 'Fundamentalist'
         self.access = access
 
     @staticmethod
-    def evaluate(dividends: list, risk_free: float):
+    def evaluate(dividends: list, risk_free_rate: float):
         """
         Evaluates the stock using Constant Dividend Model.
 
@@ -179,7 +179,7 @@ class Fundamentalist(Trader):
         of the stock based on last known dividend.
         """
         divs = dividends  # known future dividends
-        r = risk_free  # risk-free rate
+        r = risk_free_rate
 
         perp = divs[-1] / r / (1 + r)**(len(divs) - 1)  # perpetual payments
         known = sum([divs[i] / (1 + r)**(i + 1) for i in range(len(divs) - 1)]) if len(divs) > 1 else 0
@@ -200,7 +200,10 @@ class Fundamentalist(Trader):
         return min(q, 5)
 
     def call(self):
-        pf = round(self.evaluate(self.market.dividend(self.access), self.market.risk_free), 1)  # fundamental price
+        divs = self.market.dividend(self.access)
+        rf = self.market.risk_free_rate
+
+        pf = round(self.evaluate(divs, rf), 1)  # fundamental price
         p = self.market.price()
         spread = self.market.spread()
         t_cost = self.market.transaction_cost
@@ -365,8 +368,8 @@ class Universalist(Fundamentalist, Chartist):
 
         dp = info.prices[-1] - info.prices[-2] if len(info.prices) > 1 else 0  # price derivative
         p = self.market.price()  # market price
-        pf = self.evaluate(self.market.dividend(self.access), self.market.risk_free)  # fundamental price
-        r = pf * self.market.risk_free  # expected dividend return
+        pf = self.evaluate(self.market.dividend(self.access), self.market.risk_free_rate)  # fundamental price
+        r = pf * self.market.risk_free_rate  # expected dividend return
         R = mean(info.returns[-1].values())  # average return in economy
 
         # Change sentiment

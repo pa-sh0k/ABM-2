@@ -1,4 +1,3 @@
-from AgentBasedModel.simulator import Simulator
 from AgentBasedModel.traders import Trader, Universalist, Fundamentalist, MarketMaker
 from AgentBasedModel.utils.orders import Order
 from itertools import chain
@@ -19,7 +18,7 @@ class Event:
             return True
         return False
 
-    def link(self, simulator: Simulator):
+    def link(self, simulator):
         self.simulator = simulator
         return self
 
@@ -36,7 +35,7 @@ class FundamentalPriceShock(Event):
         if super().call(it):
             return
         divs = self.simulator.exchange.dividend_book  # link to dividend book
-        r = self.simulator.exchange.risk_free  # risk-free rate
+        r = self.simulator.exchange.risk_free_rate  # risk-free rate
 
         self.simulator.exchange.dividend_book = [div + self.dp * r for div in divs]
 

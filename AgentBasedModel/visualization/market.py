@@ -17,7 +17,7 @@ def plot_price(info: SimulatorInfo, spread=False, rolling: int = 1, figsize=(6, 
     plt.show()
 
 
-def plot_price_fundamental(info: SimulatorInfo, spread=False, access: int = 1, rolling: int = 1, figsize=(6, 6)):
+def plot_price_fundamental(info: SimulatorInfo, spread=False, access: int = 0, rolling: int = 1, figsize=(6, 6)):
     plt.figure(figsize=figsize)
     if rolling == 1:
         plt.title('Stock Fundamental and Market value')
@@ -37,7 +37,7 @@ def plot_price_fundamental(info: SimulatorInfo, spread=False, access: int = 1, r
     plt.show()
 
 
-def plot_arbitrage(info: SimulatorInfo, access: int = 1, rolling: int = 1, figsize=(6, 6)):
+def plot_arbitrage(info: SimulatorInfo, access: int = 0, rolling: int = 1, figsize=(6, 6)):
     plt.figure(figsize=figsize)
     if rolling == 1:
         plt.title('Stock Fundamental and Market value difference %')

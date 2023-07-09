@@ -116,7 +116,7 @@ def plot_returns(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
         except:
             plt.plot(v, label=k)
 
-    plt.plot(range(rolling, (len(info.returns))), [info.exchange.risk_free] * (len(info.returns) - rolling),
+    plt.plot(range(rolling, (len(info.returns))), [info.exchange.risk_free_rate] * (len(info.returns) - rolling),
              ls='--', color='black', label='risk-free rate')
 
     plt.legend()

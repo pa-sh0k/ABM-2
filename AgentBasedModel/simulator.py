@@ -1,15 +1,24 @@
-from AgentBasedModel.traders import ExchangeAgent, Universalist, Chartist, Fundamentalist
+from typing import Type, List
+
+from AgentBasedModel.exchange import ExchangeAgent, Asset
+from AgentBasedModel.traders import Trader, Universalist, Chartist, Fundamentalist
+from AgentBasedModel.extra import Event
 from AgentBasedModel.utils.math import mean, std, rolling
 import random
 from tqdm import tqdm
-
 
 class Simulator:
     """
     Simulator is responsible for launching agents' actions and executing scenarios
     """
-
-    def __init__(self, exchange: ExchangeAgent = None, traders: list = None, events: list = None):
+    def __init__(
+            self,
+            asset:    Type[Asset],
+            exchange: ExchangeAgent = None,
+            traders:  List[Type[Trader]] = None,
+            events:   List[Type[Event]] = None
+        ):
+        self.asset = asset
         self.exchange = exchange
         self.events = [event.link(self) for event in events] if events else None  # link all events to simulator
         self.traders = traders
@@ -18,9 +27,9 @@ class Simulator:
     def _payments(self):
         for trader in self.traders:
             # Dividend payments
-            trader.cash += trader.assets * self.exchange.dividend()  # allow negative dividends
+            trader.cash += trader.assets * self.exchange.dividend()  # allows negative assets
             # Interest payment
-            trader.cash += trader.cash * self.exchange.risk_free  # allow risk-free loan
+            trader.cash += trader.cash * self.exchange.risk_free_rate  # allows risk-free loan
 
     def simulate(self, n_iter: int, silent=False) -> object:
         for it in tqdm(range(n_iter), desc='Simulation', disable=silent):
@@ -36,7 +45,7 @@ class Simulator:
             for trader in self.traders:
                 if type(trader) == Universalist:
                     trader.change_strategy(self.info)
-                elif type(trader) == Chartist:
+                if type(trader) in (Universalist, Chartist):
                     trader.change_sentiment(self.info)
 
             # Call Traders
@@ -46,7 +55,7 @@ class Simulator:
 
             # Payments and dividends
             self._payments()  # pay dividends
-            self.exchange.generate_dividend()  # generate next dividends
+            self.asset.update()  # generate next dividends
 
         return self
 
@@ -55,7 +64,6 @@ class SimulatorInfo:
     """
     SimulatorInfo is responsible for capturing data during simulating
     """
-
     def __init__(self, exchange: ExchangeAgent = None, traders: list = None):
         self.exchange = exchange
         self.traders = {t.id: t for t in traders}
@@ -126,13 +134,13 @@ class SimulatorInfo:
         self.returns.append({tr_id: (self.equities[-1][tr_id] - self.equities[-2][tr_id]) / self.equities[-2][tr_id]
                              for tr_id in self.traders.keys()}) if len(self.equities) > 1 else None
 
-    def fundamental_value(self, access: int = 1) -> list:
+    def fundamental_value(self, access: int = 0) -> list:
         divs = self.dividends.copy()
         n = len(divs)  # number of iterations
-        divs.extend(self.exchange.dividend(access)[1:access])  # add not recorded future divs
-        r = self.exchange.risk_free
+        divs.extend(self.exchange.dividend(access)[1:access+1])  # current div is already recorded
+        r = self.exchange.risk_free_rate
 
-        return [Fundamentalist.evaluate(divs[i:i+access], r) for i in range(n)]
+        return [Fundamentalist.evaluate(divs[i:i+access+1], r) for i in range(n)]
 
     def stock_returns(self, roll: int = None) -> list or float:
         p = self.prices
@@ -141,7 +149,7 @@ class SimulatorInfo:
         return rolling(r, roll) if roll else mean(r)
 
     def abnormal_returns(self, roll: int = None) -> list:
-        rf = self.exchange.risk_free
+        rf = self.exchange.risk_free_rate
         r = [r - rf for r in self.stock_returns()]
         return rolling(r, roll) if roll else r
 

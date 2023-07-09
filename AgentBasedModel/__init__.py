@@ -2,6 +2,7 @@ from AgentBasedModel.extra import *
 from AgentBasedModel.visualization import *
 
 from AgentBasedModel.exchange import (
+    Stock,
     ExchangeAgent
 )
 from AgentBasedModel.traders import (
