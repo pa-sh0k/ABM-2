@@ -9,7 +9,7 @@ asset = Stock(dividend)
 
 exchange = ExchangeAgent(asset, risk_free_rate, mean=price, n=1000)
 simulator = Simulator(**{
-    'asset': asset, 
+    'asset': asset,
     'exchange': exchange,
     'traders': [
         *[Random(exchange, 10**3)         for _ in range(10)],

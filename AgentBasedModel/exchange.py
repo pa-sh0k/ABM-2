@@ -14,6 +14,9 @@ class Asset:
         self.id = Asset.id
         Asset.id += 1
 
+    def update(self):
+        pass
+
 
 class Stock(Asset):
     """

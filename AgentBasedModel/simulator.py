@@ -4,8 +4,10 @@ from AgentBasedModel.exchange import ExchangeAgent, Asset
 from AgentBasedModel.traders import Trader, Universalist, Chartist, Fundamentalist
 from AgentBasedModel.extra import Event
 from AgentBasedModel.utils.math import mean, std, rolling
+
 import random
 from tqdm import tqdm
+
 
 class Simulator:
     """
@@ -17,7 +19,7 @@ class Simulator:
             exchange: ExchangeAgent = None,
             traders:  List[Type[Trader]] = None,
             events:   List[Type[Event]] = None
-        ):
+        ) -> object:
         self.asset = asset
         self.exchange = exchange
         self.events = [event.link(self) for event in events] if events else None  # link all events to simulator
@@ -54,7 +56,7 @@ class Simulator:
                 trader.call()
 
             # Payments and dividends
-            self._payments()  # pay dividends
+            self._payments()
             self.asset.update()  # generate next dividends
 
         return self
@@ -64,7 +66,7 @@ class SimulatorInfo:
     """
     SimulatorInfo is responsible for capturing data during simulating
     """
-    def __init__(self, exchange: ExchangeAgent = None, traders: list = None):
+    def __init__(self, exchange: ExchangeAgent = None, traders: list = None) -> object:
         self.exchange = exchange
         self.traders = {t.id: t for t in traders}
 
