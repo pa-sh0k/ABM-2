@@ -10,7 +10,7 @@ class Trader:
     """
     id = 0
 
-    def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0):
+    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0):
         """
         Trader that is activated on call to perform action
 
@@ -74,17 +74,17 @@ class Random(Trader):
     Random creates noisy orders to recreate trading in real environment.
     """
 
-    def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0):
+    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0):
         super().__init__(market, cash, assets)
         self.type = 'Random'
 
     @staticmethod
-    def draw_delta(std: float or int = 2.5):
+    def draw_delta(std: float | int = 2.5):
         lamb = 1 / std
         return random.expovariate(lamb)
 
     @staticmethod
-    def draw_price(order_type, spread: dict, std: float or int = 2.5) -> float:
+    def draw_price(order_type, spread: dict, std: float | int = 2.5) -> float:
         """
         Draw price for limit order. The price is calculated as:
 
@@ -159,7 +159,7 @@ class Fundamentalist(Trader):
     Fundamentalist evaluate stock value using Constant Dividend Model. Then places orders accordingly
     """
     
-    def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0, access: int = 0):
+    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0, access: int = 0):
         """
         :param market: exchange agent link
         :param cash: number of cash
@@ -255,7 +255,7 @@ class Chartist(Trader):
     propagation among other chartists, current price changes
     """
 
-    def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0):
+    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0):
         """
         :param market: exchange agent link
         :param cash: number of cash
@@ -327,7 +327,7 @@ class Universalist(Fundamentalist, Chartist):
     """
     Universalist mixes Fundamentalist, Chartist trading strategies allowing to change one strategy to another
     """
-    def __init__(self, market: ExchangeAgent, cash: float or int, assets: int = 0, access: int = 1):
+    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0, access: int = 1):
         """
         :param market: exchange agent link
         :param cash: number of cash

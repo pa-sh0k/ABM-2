@@ -24,7 +24,7 @@ def aggToShock(sim: Simulator, window: int, funcs: list) -> dict:
     } for f_name, f in funcs} for event in sim.events}
 
 
-def test_trend_kendall(values, category: bool = False, conf: float = .95) -> bool or dict:
+def test_trend_kendall(values, category: bool = False, conf: float = .95) -> bool | dict:
     """
     Kendall’s Tau test.
     H0: No trend exists
@@ -54,7 +54,7 @@ def test_trend_ols(values) -> dict:
     }
 
 
-def trend(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .01) -> bool or list:
+def trend(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .01) -> bool | list:
     prices = info.prices[window:]
 
     if size is None:
@@ -69,7 +69,7 @@ def trend(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = 
     return res
 
 
-def panic(info: SimulatorInfo, size: int = None, window: int = 5, th: float = 0.5) -> bool or list:
+def panic(info: SimulatorInfo, size: int = None, window: int = 5, th: float = 0.5) -> bool | list:
     volatility = info.price_volatility(window)
     if size is None:
         return any(v > th for v in volatility)
@@ -81,7 +81,7 @@ def panic(info: SimulatorInfo, size: int = None, window: int = 5, th: float = 0.
     return res
 
 
-def disaster(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .02) -> bool or list:
+def disaster(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .02) -> bool | list:
     volatility = info.price_volatility(window)
     if size is None:
         test = test_trend_ols(volatility)
@@ -94,7 +94,7 @@ def disaster(info: SimulatorInfo, size: int = None, window: int = 5, conf: float
     return res
 
 
-def mean_rev(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = -.02) -> bool or list:
+def mean_rev(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = -.02) -> bool | list:
     volatility = info.price_volatility(window)
     if size is None:
         test = test_trend_ols(volatility)
@@ -107,7 +107,7 @@ def mean_rev(info: SimulatorInfo, size: int = None, window: int = 5, conf: float
     return res
 
 
-def general_states(info: SimulatorInfo, size: int = 10, window: int = 5) -> str or list:
+def general_states(info: SimulatorInfo, size: int = 10, window: int = 5) -> str | list:
     states_trend = trend(info, size)
     states_panic = panic(info, size, window)
     states_disaster = disaster(info, size, window)

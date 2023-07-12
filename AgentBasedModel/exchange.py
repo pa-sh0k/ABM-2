@@ -26,7 +26,7 @@ class Stock(Asset):
     - Dividend changes over time
     - Traded throught ExchangeAgent
     """
-    def __init__(self, dividend: float or int):
+    def __init__(self, dividend: float | int):
         """
         :param dividend: initial dividend > 0
         """
@@ -37,7 +37,7 @@ class Stock(Asset):
         self.dividend_book = list()  # act like queue
         self._fill_book()
     
-    def _next_dividend(self, div_current: float or int, std: float or int = 5e-3) -> float or int:
+    def _next_dividend(self, div_current: float | int, std: float | int = 5e-3) -> float | int:
         x = max(exp(random.normalvariate(0, std)), 0)
         return div_current * x
 
@@ -74,7 +74,7 @@ class ExchangeAgent:
             self,
             asset: Type[Asset],                                               # traded asset
             risk_free_rate: float = 5e-4, transaction_cost: float = 0,        # economy rates
-            mean: float or int = None, std: float or int = 25, n: int = 1000  # order book initialization
+            mean: float | int = None, std: float | int = 25, n: int = 1000  # order book initialization
         ):
         """
         Creates ExchangeAgent with initialised order book and future dividends
@@ -99,7 +99,7 @@ class ExchangeAgent:
         self.order_book = self.order_book = {'bid': OrderList('bid'), 'ask': OrderList('ask')}
         self._fill_book(mean, std, n)
 
-    def _fill_book(self, mean: float or int, std: float or int, n: int):
+    def _fill_book(self, mean: float | int, std: float | int, n: int):
         """
         Fill order book with random orders.
 
@@ -126,7 +126,7 @@ class ExchangeAgent:
         self.order_book['bid'] = OrderList.from_list([order for order in self.order_book['bid'] if order.qty > 0])
         self.order_book['ask'] = OrderList.from_list([order for order in self.order_book['ask'] if order.qty > 0])
 
-    def spread(self) -> dict or None:
+    def spread(self) -> dict:
         """
         Returns best bid and ask prices as dictionary
 
@@ -134,9 +134,9 @@ class ExchangeAgent:
         """
         if self.order_book['bid'] and self.order_book['ask']:
             return {'bid': self.order_book['bid'].first.price, 'ask': self.order_book['ask'].first.price}
-        raise Exception(f'There no either bid or ask orders')
+        raise Exception(f'There no either bid | ask orders')
 
-    def spread_volume(self) -> dict or None:
+    def spread_volume(self) -> dict:
         """
         **(UNUSED)** Returns best bid and ask volumes as dictionary
 
@@ -155,7 +155,7 @@ class ExchangeAgent:
             return round((spread['bid'] + spread['ask']) / 2, 1)
         raise Exception(f'Price cannot be determined, since no orders either bid or ask')
 
-    def dividend(self, access: int = None) -> list or float or int:
+    def dividend(self, access: int = None) -> list | float | int:
         """
         :param access:
         - **None:** return float or int (current dividend)
