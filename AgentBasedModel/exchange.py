@@ -88,7 +88,7 @@ class ExchangeAgent:
         if mean is None:
             mean = asset.dividend / risk_free_rate
 
-        self.name = f'ExchangeAgent{self.id}'
+        self.name = f'Exchange{self.id}'
         self.id = ExchangeAgent.id
         ExchangeAgent.id += 1
 
@@ -177,6 +177,8 @@ class ExchangeAgent:
         t_cost = self.transaction_cost
         if not bid or not ask:
             return
+        if not order.qty:
+            return
 
         if order.order_type == 'bid':
             if order.price >= ask:
@@ -193,6 +195,9 @@ class ExchangeAgent:
 
     def market_order(self, order: Order) -> Order:
         t_cost = self.transaction_cost
+        if not order.qty:
+            return order
+        
         if order.order_type == 'bid':
             order = self.order_book['ask'].fulfill(order, t_cost)
         elif order.order_type == 'ask':

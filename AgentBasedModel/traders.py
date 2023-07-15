@@ -207,14 +207,11 @@ class Fundamentalist(Trader):
         p = self.market.price()
         spread = self.market.spread()
         t_cost = self.market.transaction_cost
-
+        
         if spread is None:
             return
 
         random_state = random.random()
-        qty = Fundamentalist.draw_quantity(pf, p)  # quantity to buy
-        if not qty:
-            return
 
         # Limit or Market order
         if random_state > .45:
@@ -225,21 +222,37 @@ class Fundamentalist(Trader):
 
             if pf >= ask_t:
                 if random_state > .5:
-                    self._buy_market(qty)
+                    self._buy_market(
+                        Fundamentalist.draw_quantity(pf, p)
+                    )
                 else:
-                    self._sell_limit(qty, (pf + Random.draw_delta()) * (1 + t_cost))
+                    self._sell_limit(
+                        Fundamentalist.draw_quantity(pf, p),
+                        (pf + Random.draw_delta()) * (1 + t_cost)
+                    )
 
             elif pf <= bid_t:
                 if random_state > .5:
-                    self._sell_market(qty)
+                    self._sell_market(
+                        Fundamentalist.draw_quantity(pf, p)
+                    )
                 else:
-                    self._buy_limit(qty, (pf - Random.draw_delta()) * (1 - t_cost))
+                    self._buy_limit(
+                        Fundamentalist.draw_quantity(pf, p),
+                        (pf - Random.draw_delta()) * (1 - t_cost)
+                    )
 
             elif ask_t > pf > bid_t:
                 if random_state > .5:
-                    self._buy_limit(qty, (pf - Random.draw_delta()) * (1 - t_cost))
+                    self._buy_limit(
+                        Fundamentalist.draw_quantity(pf, p),
+                        (pf - Random.draw_delta()) * (1 - t_cost)
+                    )
                 else:
-                    self._sell_limit(qty, (pf + Random.draw_delta()) * (1 + t_cost))
+                    self._sell_limit(
+                        Fundamentalist.draw_quantity(pf, p),
+                        (pf + Random.draw_delta()) * (1 + t_cost)
+                    )
 
         # Cancel order
         else:
@@ -273,25 +286,48 @@ class Chartist(Trader):
         if self.sentiment == 'Optimistic':
             # Market order
             if random_state > .85:
-                self._buy_market(Random.draw_quantity())
+                self._buy_market(
+                    Random.draw_quantity()
+                )
             # Limit order
             elif random_state > .5:
-                self._buy_limit(Random.draw_quantity(), Random.draw_price('bid', spread) * (1 - t_cost))
+                self._buy_limit(
+                    Random.draw_quantity(),
+                    Random.draw_price('bid', spread) * (1 - t_cost)
+                )
             # Cancel order
             elif random_state < .35:
                 if self.orders:
                     self._cancel_order(self.orders[-1])
+
         elif self.sentiment == 'Pessimistic':
             # Market order
             if random_state > .85:
-                self._sell_market(Random.draw_quantity())
+                self._sell_market(
+                    Random.draw_quantity()
+                )
             # Limit order
             elif random_state > .5:
-                self._sell_limit(Random.draw_quantity(), Random.draw_price('ask', spread) * (1 + t_cost))
+                self._sell_limit(
+                    Random.draw_quantity(),
+                    Random.draw_price('ask', spread) * (1 + t_cost)
+                )
             # Cancel order
             elif random_state < .35:
                 if self.orders:
                     self._cancel_order(self.orders[-1])
+
+    def _get_types(self, info):
+        res = list()
+        for v in info.types.values():
+            res.append(v[-1] if v else None)
+        return res
+
+    def _get_sentiments(self, info):
+        res = list()
+        for v in info.sentiments.values():
+            res.append(v[-1] if v else None)
+        return res
 
     def change_sentiment(self, info, a1=1, a2=1, v1=.1):
         """
@@ -302,13 +338,16 @@ class Chartist(Trader):
         :param a2: importance of current price changes
         :param v1: frequency of revaluation of opinion for sentiment
         """
-        n_traders = len(info.traders)  # number of all traders
-        n_chartists = sum([tr_type == 'Chartist' for tr_type in info.types[-1].values()])
-        n_optimistic = sum([tr_type == 'Optimistic' for tr_type in info.sentiments[-1].values()])
-        n_pessimists = sum([tr_type == 'Pessimistic' for tr_type in info.sentiments[-1].values()])
+        n_traders    = len(info.traders)  # number of all traders
+        n_chartists  = sum([tr_type == 'Chartist'    for tr_type in self._get_types(info)])
+        n_optimistic = sum([tr_type == 'Optimistic'  for tr_type in self._get_sentiments(info)])
+        n_pessimists = sum([tr_type == 'Pessimistic' for tr_type in self._get_sentiments(info)])
 
-        dp = info.prices[-1] - info.prices[-2] if len(info.prices) > 1 else 0  # price derivative
-        p = self.market.price()  # market price
+        dp = (
+            info.prices[self.market.id][-1] - info.prices[self.market.id][-2]  # price derivative
+            if len(info.prices[self.market.id]) > 1 else 0
+        )
+        p = self.market.price()                                                # market price
         x = (n_optimistic - n_pessimists) / n_chartists
 
         U = a1 * x + a2 / v1 * dp / p
@@ -339,6 +378,24 @@ class Universalist(Fundamentalist, Chartist):
         self.sentiment = 'Optimistic' if random.random() > .5 else 'Pessimistic'  # sentiment about trend (Chartist)
         self.access = access  # next n dividend payments known (Fundamentalist)
 
+    def _get_types(self, info):
+        res = list()
+        for v in info.types.values():
+            res.append(v[-1] if v else None)
+        return res
+
+    def _get_sentiments(self, info):
+        res = list()
+        for v in info.sentiments.values():
+            res.append(v[-1] if v else None)
+        return res
+
+    def _get_returns(self, info):
+        res = list()
+        for v in info.returns.values():
+            res.append(v[-1] if v else 0)
+        return res
+
     def call(self):
         """
         Call one of parents' methods depending on what type it is currently set.
@@ -361,16 +418,20 @@ class Universalist(Fundamentalist, Chartist):
         :param s: importance of fundamental value opportunities
         """
         # Gather variables
-        n_traders = len(info.traders)  # number of all traders
-        n_fundamentalists = sum([tr.type == 'Fundamentalist' for tr in info.traders.values()])
-        n_optimistic = sum([tr.sentiment == 'Optimistic' for tr in info.traders.values() if tr.type == 'Chartist'])
-        n_pessimists = sum([tr.sentiment == 'Pessimistic' for tr in info.traders.values() if tr.type == 'Chartist'])
+        n_traders    = len(info.traders)  # number of all traders
+        n_fundamentalists = sum([tr_type == 'Fundamentalist' for tr_type in self._get_types(info)])
+        n_optimistic      = sum([tr_type == 'Optimistic'     for tr_type in self._get_sentiments(info)])
+        n_pessimists      = sum([tr_type == 'Pessimistic'    for tr_type in self._get_sentiments(info)])
 
-        dp = info.prices[-1] - info.prices[-2] if len(info.prices) > 1 else 0  # price derivative
-        p = self.market.price()  # market price
+        dp = (
+            info.prices[self.market.id][-1] - info.prices[self.market.id][-2]              # price derivative
+            if len(info.prices[self.market.id]) > 1 else 0
+        )
+        p = self.market.price()                                                            # market price
         pf = self.evaluate(self.market.dividend(self.access), self.market.risk_free_rate)  # fundamental price
+
         r = pf * self.market.risk_free_rate  # expected dividend return
-        R = mean(info.returns[-1].values())  # average return in economy
+        R = mean(self._get_returns(info))    # average return in economy
 
         # Change sentiment
         if self.type == 'Chartist':

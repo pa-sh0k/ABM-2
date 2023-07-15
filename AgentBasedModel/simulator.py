@@ -176,6 +176,7 @@ class SimulatorInfo:
 
         return [Fundamentalist.evaluate(divs[i:i+access+1], rf) for i in range(len(divs) - access)]
 
+    # todo: roll - deprecated (roll is used only in visualizations)
     def stock_returns(self, idx: int, roll: int = 1) -> list:
         """Stock return is calculated based on: 1) dividend, 2) price change
 
@@ -212,7 +213,7 @@ class SimulatorInfo:
         """Stock return volatility is calculated as a standard deviation of stock returns 
 
         :param idx: ExchangeAgent id
-        :param window: sample size, > 1, defaults to 1
+        :param window: sample size, > 1, defaults to 5
         :return: stock return volatility
         """
 
@@ -224,7 +225,7 @@ class SimulatorInfo:
         """Stock price volatility is calculated as a standard deviation of stock market prices 
 
         :param idx: ExchangeAgent id
-        :param window: sample size, > 1, defaults to 1
+        :param window: sample size, > 1, defaults to 5
         :return: stock price volatility
         """
         
