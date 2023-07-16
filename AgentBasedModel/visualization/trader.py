@@ -1,9 +1,13 @@
 from AgentBasedModel.simulator import SimulatorInfo
 import AgentBasedModel.utils.math as math
+
 import matplotlib.pyplot as plt
 
-
+# **(DEPRECATED)**
 def plot_equity(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
+    """
+    **(DEPRECATED)** function
+    """
     plt.figure(figsize=figsize)
     plt.title('Equity') if rolling == 1 else plt.title(f'Equity (MA {rolling})')
     plt.xlabel('Iterations')
@@ -19,7 +23,11 @@ def plot_equity(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
     plt.show()
 
 
+# **(DEPRECATED)**
 def plot_cash(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
+    """
+    **(DEPRECATED)** function
+    """
     plt.figure(figsize=figsize)
     plt.title('Cash') if rolling == 1 else plt.title(f'Cash (MA {rolling})')
     plt.xlabel('Iterations')
@@ -35,7 +43,11 @@ def plot_cash(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
     plt.show()
 
 
+# **(DEPRECATED)**
 def plot_assets(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
+    """
+    **(DEPRECATED)** function
+    """
     plt.figure(figsize=figsize)
     plt.title('Assets') if rolling == 1 else plt.title(f'Assets (MA {rolling})')
     plt.xlabel('Iterations')
@@ -51,7 +63,11 @@ def plot_assets(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
     plt.show()
 
 
+# **(DEPRECATED)**
 def plot_strategies(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
+    """
+    **(DEPRECATED)** function
+    """
     plt.figure(figsize=figsize)
     plt.title('Strategy') if rolling == 1 else plt.title(f'Strategy (MA {rolling})')
     plt.xlabel('Iterations')
@@ -65,7 +81,11 @@ def plot_strategies(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
     plt.show()
 
 
+# **(DEPRECATED)**
 def plot_strategies2(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
+    """
+    **(DEPRECATED)** function
+    """
     plt.figure(figsize=figsize)
     plt.title('Strategy') if rolling == 1 else plt.title(f'Strategy (MA {rolling})')
     plt.xlabel('Iterations')
@@ -76,7 +96,11 @@ def plot_strategies2(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
     plt.show()
 
 
+# **(DEPRECATED)**
 def plot_sentiments(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
+    """
+    **(DEPRECATED)** function
+    """
     plt.figure(figsize=figsize)
     plt.title('Sentiment') if rolling == 1 else plt.title(f'Sentiment (MA {rolling})')
     plt.xlabel('Iterations')
@@ -90,7 +114,11 @@ def plot_sentiments(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
     plt.show()
 
 
+# **(DEPRECATED)**
 def plot_sentiments2(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
+    """
+    **(DEPRECATED)** function
+    """
     plt.figure(figsize=figsize)
     plt.title('Sentiment') if rolling == 1 else plt.title(f'Sentiment (MA {rolling})')
     plt.xlabel('Iterations')
@@ -102,7 +130,11 @@ def plot_sentiments2(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
     plt.show()
 
 
+# **(DEPRECATED)**
 def plot_returns(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
+    """
+    **(DEPRECATED)** function
+    """
     plt.figure(figsize=figsize)
     plt.title('Realized Returns') if rolling == 1 else plt.title(f'Realized Returns (MA {rolling})')
     plt.xlabel('Iterations')
