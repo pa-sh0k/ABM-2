@@ -469,7 +469,7 @@ class MarketMaker(Trader):
     spread between bid and ask prices, and maintain its assets to cash ratio in balance.
     """
 
-    def __init__(self, market: ExchangeAgent, cash: float, assets: int = 0, softlimit: int = 100):
+    def __init__(self, market: ExchangeAgent, cash: float = 10**3, assets: int = 0, softlimit: int = 100):
         super().__init__(market, cash, assets)
         self.type = 'Market Maker'
         self.softlimit = softlimit

@@ -72,18 +72,17 @@ class ExchangeAgent:
 
     def __init__(
             self,
-            asset: Type[Asset],                                               # traded asset
-            risk_free_rate: float = 5e-4, transaction_cost: float = 0,        # economy rates
+            asset: Type[Asset],                                             # traded asset
+            risk_free_rate: float = 5e-4, transaction_cost: float = 0,      # economy rates
             mean: float | int = None, std: float | int = 25, n: int = 1000  # order book initialization
         ):
-        """
-        Creates ExchangeAgent with initialised order book and future dividends
+        """Creates ExchangeAgent with initialised order book and future dividends
 
         :param price: stock initial price
         :param std: standard deviation of order prices
         :param n: number of orders initialised
         :param rf: risk-free rate
-        :param transaction_cost: transaction cost on operations for traders
+        :param transaction_cost: transaction cost on operations for traders (fraction)
         """
         if mean is None:
             mean = asset.dividend / risk_free_rate
@@ -100,8 +99,7 @@ class ExchangeAgent:
         self._fill_book(mean, std, n)
 
     def _fill_book(self, mean: float | int, std: float | int, n: int):
-        """
-        Fill order book with random orders.
+        """Fill order book with random orders.
 
         Generate prices from normal distribution with *std*, and *price* as center; generate
         quantities for these orders from uniform distribution with 1, 5 bounds. Set bid orders when
