@@ -8,7 +8,6 @@ from AgentBasedModel.extra.events import (
     MarketMakerOut,
     TransactionCost
 )
-# from AgentBasedModel.extra.states import (
-#     aggToShock,
-#     general_states
-# )
+from AgentBasedModel.extra.states import (
+    general_states
+)

@@ -1,27 +1,7 @@
-from AgentBasedModel.simulator import Simulator, SimulatorInfo
 import AgentBasedModel.utils.math as math
 
-from scipy.stats import kendalltau, chi2
+from scipy.stats import kendalltau
 import statsmodels.api as sm
-
-
-def aggToShock(sim: Simulator, window: int, funcs: list) -> dict:
-    """
-    Aggregate market statistics in respect to market shocks
-
-    :param sim: Simulator object
-    :param funcs: [('func_name', func), ...]. Function accepts SimulatorInfo object and roll or window variable
-    :param window: 1 to n
-    :return:
-    """
-    return {str(event): {f_name: {
-        'start': f(sim.info, window)[0],
-        'before': f(sim.info, window)[:event.it - window] if event.it - window > 0 else [],
-        'right before': f(sim.info, window)[event.it - window] if event.it - window - 1 >= 0 else [],
-        'after': f(sim.info, window)[event.it - window + 1:],
-        'right after': f(sim.info, window)[event.it - window + 1],
-        'end': f(sim.info, window)[-1]
-    } for f_name, f in funcs} for event in sim.events}
 
 
 def test_trend_kendall(values, category: bool = False, conf: float = .95) -> bool | dict:
@@ -54,8 +34,25 @@ def test_trend_ols(values) -> dict:
     }
 
 
-def trend(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .01) -> bool | list:
-    prices = info.prices[window:]
+def trend(
+        info,
+        idx:    int,
+        size:   int   = None,
+        window: int   = 5,
+        conf:   float = .95,
+        th:     float = .01
+    ) -> bool | list:
+    """Test if exist price trend
+
+    :param info: SimulatorInfo
+    :param idx: ExchangeAgent id
+    :param size: section size to measure state upon, defaults to None
+    :param window: (compatibility) rolling window to measure volatility, defaults to 5
+    :param conf: OLS p-value threshold, defaults to .95
+    :param th: OLS coeff threshold, defaults to .01
+    :return: if size is None -> bool, if size is not None -> list
+    """
+    prices = info.prices[idx][window:]
 
     if size is None:
         test = test_trend_ols(prices)
@@ -69,8 +66,24 @@ def trend(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = 
     return res
 
 
-def panic(info: SimulatorInfo, size: int = None, window: int = 5, th: float = 0.5) -> bool | list:
-    volatility = info.price_volatility(window)
+def panic(
+        info,
+        idx:    int,
+        size:   int   = None,
+        window: int   = 5,
+        th:     float = .01
+    ) -> bool | list:
+    """Test if volatility is high at any iteration
+
+    :param info: SimulatorInfo
+    :param idx: ExchangeAgent id
+    :param size: section size to measure state upon, defaults to None
+    :param window: rolling window to measure volatility, defaults to 5
+    :param th: OLS coeff threshold, defaults to .01
+    :return: if size is None -> bool, if size is not None -> list
+    """
+    volatility = info.price_volatility(idx, window)
+
     if size is None:
         return any(v > th for v in volatility)
 
@@ -78,11 +91,30 @@ def panic(info: SimulatorInfo, size: int = None, window: int = 5, th: float = 0.
     for i in range(len(volatility) // size):
         sl = volatility[i*size:(i+1)*size]
         res.append(any(v > math.mean(volatility) * th for v in sl))
+    
     return res
 
 
-def disaster(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = .02) -> bool | list:
-    volatility = info.price_volatility(window)
+def disaster(
+        info,
+        idx:    int,
+        size:   int   = None,
+        window: int   = 5,
+        conf:   float = .95,
+        th:     float = .01
+    ) -> bool | list:
+    """Test volatility increase
+
+    :param info: SimulatorInfo
+    :param idx: ExchangeAgent id
+    :param size: section size to measure state upon, defaults to None
+    :param window: rolling window to measure volatility, defaults to 5
+    :param conf: OLS p-value threshold, defaults to .95
+    :param th: OLS coeff threshold, defaults to .01
+    :return: if size is None -> bool, if size is not None -> list
+    """
+    volatility = info.price_volatility(idx, window)
+
     if size is None:
         test = test_trend_ols(volatility)
         return test['value'] > th and test['p-value'] < (1 - conf)
@@ -91,11 +123,30 @@ def disaster(info: SimulatorInfo, size: int = None, window: int = 5, conf: float
     for i in range(len(volatility) // size):
         test = test_trend_ols(volatility[i*size:(i+1)*size])
         res.append(test['value'] > th and test['p-value'] < (1 - conf))
+
     return res
 
 
-def mean_rev(info: SimulatorInfo, size: int = None, window: int = 5, conf: float = .95, th: float = -.02) -> bool | list:
-    volatility = info.price_volatility(window)
+def mean_rev(
+        info,
+        idx:    int,
+        size:   int   = None,
+        window: int   = 5,
+        conf:   float = .95,
+        th:     float = .01
+    ) -> bool | list:
+    """Test volatility decrease
+
+    :param info: SimulatorInfo
+    :param idx: ExchangeAgent id
+    :param size: section size to measure state upon, defaults to None
+    :param window: rolling window to measure volatility, defaults to 5
+    :param conf: OLS p-value threshold, defaults to .95
+    :param th: OLS coeff threshold, defaults to .01
+    :return: if size is None -> bool, if size is not None -> list
+    """
+    volatility = info.price_volatility(idx, window)
+
     if size is None:
         test = test_trend_ols(volatility)
         return test['value'] < th and test['p-value'] < (1 - conf)
@@ -104,14 +155,34 @@ def mean_rev(info: SimulatorInfo, size: int = None, window: int = 5, conf: float
     for i in range(len(volatility) // size):
         test = test_trend_ols(volatility[i*size:(i+1)*size])
         res.append(test['value'] < th and test['p-value'] < (1 - conf))
+
     return res
 
 
-def general_states(info: SimulatorInfo, size: int = 10, window: int = 5) -> str | list:
-    states_trend = trend(info, size)
-    states_panic = panic(info, size, window)
-    states_disaster = disaster(info, size, window)
-    states_mean_rev = mean_rev(info, size, window)
+def general_states(
+        info,
+        idx:    int,
+        size:   int = 10,
+        window: int = 5
+    ) -> str | list:
+    """Classify market states on the simulation timeline sections
+
+    1) Measure price trend, volatility value, volatility trend with rolling **window**
+    2) Divide simulation timeline with non-intersecting section of lenght **size**
+    3) Determing market state for each section
+
+    :param info: SimulatorInfo
+    :param idx: ExchangeAgent id
+    :param size: section size to measure state upon, defaults to 10
+    :param window: rolling window to measure volatility, defaults to 5
+    :return: One of the following states (with priority as ordered) 'mean-rev' - volatility is decreasing,
+    'disaster' - volatility is increasing, 'panic' - volatility is high, 'trend' - exist price trend,
+    'stable' - otherwise
+    """
+    states_trend = trend(info, idx, size)
+    states_panic = panic(info, idx, size, window)
+    states_disaster = disaster(info, idx, size, window)
+    states_mean_rev = mean_rev(info, idx, size, window)
 
     res = list()
     for t, p, d, mr in zip(states_trend, states_panic, states_disaster, states_mean_rev):
