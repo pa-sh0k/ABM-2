@@ -1,7 +1,13 @@
 from typing import Type, List
 
 from AgentBasedModel.exchange import ExchangeAgent, Asset
-from AgentBasedModel.traders import Trader, Universalist, Chartist, Fundamentalist
+from AgentBasedModel.traders import (
+    Trader,
+    Universalist,
+    Chartist1D,
+    Chartist2D,
+    Fundamentalist
+)
 from AgentBasedModel.extra import Event
 from AgentBasedModel.utils.math import mean, std, rolling
 
@@ -28,13 +34,6 @@ class Simulator:
 
         self.info = SimulatorInfo(exchanges, traders)
 
-    def _payments(self):
-        for trader in self.traders:
-            # Dividend payments
-            trader.cash += trader.assets * trader.market.dividend()  # allows negative assets
-            # Interest payment
-            trader.cash += trader.cash * trader.market.risk_free_rate  # allows risk-free loan
-
     def simulate(self, n_iter: int, silent: bool = False) -> object:
         for it in tqdm(range(n_iter), desc='Simulation', disable=silent):
             # Call scenario
@@ -51,13 +50,13 @@ class Simulator:
             for trader in self.traders:
                 if type(trader) == Universalist:
                     trader.change_strategy(self.info)
-                if type(trader) in (Universalist, Chartist):
+                if type(trader) in (Universalist, Chartist1D, Chartist2D):
                     trader.change_sentiment(self.info)
 
-                trader.call()
+                trader.call()    # trader's action
+                trader.income()  # trader's dividend and interest
 
-            # Payments and dividends
-            self._payments()
+            # Update assets
             for asset in self.assets:
                 asset.update()  # generate next dividend
 
@@ -158,7 +157,7 @@ class SimulatorInfo:
                 self.returns[idx].append(
                     (self.equities[idx][-1] - self.equities[idx][-2]) / self.equities[idx][-2]
                 )
-            if type(trader) in (Chartist, Universalist):
+            if type(trader) in (Chartist1D, Chartist2D, Universalist):
                 self.sentiments[idx].append(trader.sentiment)
 
     def fundamental_value(self, idx: int, access: int = 0) -> list:

@@ -5,8 +5,11 @@ from AgentBasedModel.exchange import (
 from AgentBasedModel.traders import (
     Random,
     Fundamentalist,
-    Chartist,
-    Universalist
+    Chartist1D,
+    Chartist2D,
+    Universalist,
+    MarketMaker1D,
+    MarketMaker2D
 )
 from AgentBasedModel.simulator import (
     Simulator,

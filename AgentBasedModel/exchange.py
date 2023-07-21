@@ -132,7 +132,7 @@ class ExchangeAgent:
         """
         if self.order_book['bid'] and self.order_book['ask']:
             return {'bid': self.order_book['bid'].first.price, 'ask': self.order_book['ask'].first.price}
-        raise Exception(f'There no either bid | ask orders')
+        raise Exception(f'{self.name}: There no either bid | ask orders')
 
     def spread_volume(self) -> dict:
         """

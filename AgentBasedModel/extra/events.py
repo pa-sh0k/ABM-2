@@ -1,4 +1,4 @@
-from AgentBasedModel.traders import Trader, Universalist, Fundamentalist, MarketMaker
+from AgentBasedModel.traders import SingleTrader, Universalist, Fundamentalist, MarketMaker1D
 from AgentBasedModel.utils.orders import Order
 from itertools import chain
 
@@ -108,7 +108,7 @@ class LiquidityShock(Event):
     def call(self, it: int):
         if super().call(it):
             return
-        pseudo_trader = Trader(self.exchange, 1e6, int(1e4))
+        pseudo_trader = SingleTrader(self.exchange, 1e6, int(1e4))
         if self.dv < 0:  # buy
             pseudo_trader._buy_market(abs(self.dv))
         else:  # sell
@@ -157,7 +157,7 @@ class MarketMakerIn(Event):
         if super().call(it):
             return
 
-        self.maker = MarketMaker(self.exchange, **self.kwargs)
+        self.maker = MarketMaker1D(self.exchange, **self.kwargs)
         self.simulator.traders.append(self.maker)
 
 

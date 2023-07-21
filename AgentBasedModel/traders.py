@@ -1,3 +1,5 @@
+from typing import List
+
 from AgentBasedModel.exchange import ExchangeAgent
 from AgentBasedModel.utils import Order
 from AgentBasedModel.utils.math import exp, mean
@@ -5,26 +7,22 @@ import random
 
 
 class Trader:
-    """
-    Trader basic interface
-    """
     id = 0
 
-    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0):
-        """
-        Trader that is activated on call to perform action
+    def __init__(
+            self,
+            cash:   float | int = 10**3,
+            assets: int = 0
+        ):
+        """Trader buys and sells Asset through ExchangeAgent
 
-        :param markets: link to exchange agent
-        :param cash: trader's cash available
-        :param assets: trader's number of shares hold
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares hold, defaults 0 
         """
         self.type = 'Unknown'
         self.name = f'Trader{self.id}'
         self.id = Trader.id
         Trader.id += 1
-
-        self.market = market
-        self.orders = list()  # list of orders sitting in the order book
 
         self.cash = cash
         self.assets = assets
@@ -32,9 +30,34 @@ class Trader:
     def __str__(self) -> str:
         return f'{self.name} ({self.type})'
 
+    def __repr__(self) -> str:
+        return f'{self.name}'
+
+
+class SingleTrader(Trader):
+    def __init__(
+            self,
+            market: ExchangeAgent,
+            cash:   float | int = 10**3,
+            assets: int = 0
+        ):
+        """SingleTrader trades on a single exchange
+
+        :param market: link to exchange agent
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares, defaults 0 
+        """
+        super().__init__(cash, assets)
+        self.market = market
+        self.orders = list()
+
     def equity(self):
-        price = self.market.price() if self.market.price() is not None else 0
+        price = self.market.price()
         return self.cash + self.assets * price
+
+    def income(self):
+        self.cash += self.assets * self.market.dividend()      # Dividend payments
+        self.cash += self.cash   * self.market.risk_free_rate  # Interest payment
 
     def _buy_limit(self, quantity, price):
         order = Order(round(price, 1), round(quantity), 'bid', self)
@@ -52,7 +75,9 @@ class Trader:
         """
         if not self.market.order_book['ask']:
             return quantity
-        order = Order(self.market.order_book['ask'].last.price, round(quantity), 'bid', self)
+        
+        price = self.market.order_book['ask'].last.price
+        order = Order(price, round(quantity), 'bid', self)
         return self.market.market_order(order).qty
 
     def _sell_market(self, quantity) -> int:
@@ -61,7 +86,9 @@ class Trader:
         """
         if not self.market.order_book['bid']:
             return quantity
-        order = Order(self.market.order_book['bid'].last.price, round(quantity), 'ask', self)
+        
+        price = self.market.order_book['bid'].last.price
+        order = Order(price, round(quantity), 'ask', self)
         return self.market.market_order(order).qty
 
     def _cancel_order(self, order: Order):
@@ -69,12 +96,82 @@ class Trader:
         self.orders.remove(order)
 
 
-class Random(Trader):
-    """
-    Random creates noisy orders to recreate trading in real environment.
-    """
+class MultiTrader(Trader):
+    def __init__(
+            self,
+            markets: List[ExchangeAgent],
+            cash:    float | int = 10**3,
+            assets:  int = 0
+        ):
+        """MultiTrader trades on a multiple exchanges
 
-    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0):
+        :param markets: links to exchange agents
+        :param cash: trader's cash available, defaults to 10**3
+        :param assets: trader's number of shares of each type (key: asset.id), defaults to None
+        """
+        super().__init__(cash, assets)
+        self.markets = {market.id: market for market in markets}
+        self.orders  = {market.id: list() for market in markets}
+
+    def equity(self):
+        price = max([market.price() for market in self.markets.values()])
+        return self.cash + self.assets * price
+
+    def income(self):
+        market = list(self.markets.values())[0]           # for now only single stock type allowed
+        self.cash += self.assets * market.dividend()      # Dividend payments
+        self.cash += self.cash   * market.risk_free_rate  # Interest payment
+
+    def _buy_limit(self, market_id, quantity, price):
+        order = Order(round(price, 1), round(quantity), 'bid', self)
+        self.orders[market_id].append(order)
+        self.markets[market_id].limit_order(order)
+
+    def _sell_limit(self, market_id, quantity, price):
+        order = Order(round(price, 1), round(quantity), 'ask', self)
+        self.orders[market_id].append(order)
+        self.markets[market_id].limit_order(order)
+
+    def _buy_market(self, market_id, quantity) -> int:
+        """
+        :return: quantity unfulfilled
+        """
+        if not self.markets[market_id].order_book['ask']:
+            return quantity
+        
+        price = self.markets[market_id].order_book['ask'].last.price
+        order = Order(price, round(quantity), 'bid', self)
+        return self.markets[market_id].market_order(order).qty
+
+    def _sell_market(self, market_id, quantity) -> int:
+        """
+        :return: quantity unfulfilled
+        """
+        if not self.markets[market_id].order_book['bid']:
+            return quantity
+        
+        price = self.markets[market_id].order_book['bid'].last.price
+        order = Order(price, round(quantity), 'ask', self)
+        return self.markets[market_id].market_order(order).qty
+
+    def _cancel_order(self, market_id, order: Order):
+        self.markets[market_id].cancel_order(order)
+        self.orders[market_id].remove(order)
+
+
+class Random(SingleTrader):
+    def __init__(
+            self,
+            market: ExchangeAgent,
+            cash:   float | int = 10**3,
+            assets: int = 0
+        ):
+        """Random creates noisy orders to recreate trading in real environment
+
+        :param market: link to exchange agent
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares hold, defaults 0 
+        """
         super().__init__(market, cash, assets)
         self.type = 'Random'
 
@@ -85,8 +182,7 @@ class Random(Trader):
 
     @staticmethod
     def draw_price(order_type, spread: dict, std: float | int = 2.5) -> float:
-        """
-        Draw price for limit order. The price is calculated as:
+        """Draw price for limit order. The price is calculated as:
 
         - 0.35 probability: within the spread - uniform distribution
         - 0.65 probability: out of the spread - delta from best price is exponential distribution r.v.
@@ -108,8 +204,7 @@ class Random(Trader):
 
     @staticmethod
     def draw_quantity(a=1, b=5) -> float:
-        """
-        Draw order quantity for limit or market order. The quantity is drawn from U[a,b]
+        """Draw order quantity for limit or market order. The quantity is drawn from U[a,b]
 
         :param a: minimal quantity
         :param b: maximal quantity
@@ -154,17 +249,20 @@ class Random(Trader):
                 self._cancel_order(self.orders[order_n])
 
 
-class Fundamentalist(Trader):
-    """
-    Fundamentalist evaluate stock value using Constant Dividend Model. Then places orders accordingly
-    """
-    
-    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0, access: int = 0):
-        """
-        :param market: exchange agent link
-        :param cash: number of cash
-        :param assets: number of assets
-        :param access: access >= 0, number of future dividends informed, 0 - informed only of current dividend
+class Fundamentalist(SingleTrader):
+    def __init__(
+            self,
+            market: ExchangeAgent,
+            cash:   float | int = 10**3,
+            assets: int = 0,
+            access: int = 0
+        ):
+        """Fundamentalist trades based on asset fundamental value
+
+        :param market: link to exchange agent
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares hold, defaults 0
+        :param access: number of future dividends known, defaults 0 (knows only current dividend)
         """
         super().__init__(market, cash, assets)
         self.type = 'Fundamentalist'
@@ -172,8 +270,7 @@ class Fundamentalist(Trader):
 
     @staticmethod
     def evaluate(dividends: list, risk_free_rate: float):
-        """
-        Evaluates the stock using Constant Dividend Model.
+        """Evaluates the stock using Constant Dividend Model.
 
         We first sum all known (based on *access*) discounted dividends. Then calculate perpetual value
         of the stock based on last known dividend.
@@ -260,19 +357,24 @@ class Fundamentalist(Trader):
                 self._cancel_order(self.orders[0])
 
 
-class Chartist(Trader):
+class Chartist1D(SingleTrader):
     """
     Chartists are searching for trends in the price movements. Each trader has sentiment - opinion
     about future price movement (either increasing, or decreasing). Based on sentiment trader either
     buys stock or sells. Sentiment revaluation happens at the end of each iteration based on opinion
     propagation among other chartists, current price changes
     """
+    def __init__(
+            self,
+            market: ExchangeAgent,
+            cash:   float | int = 10**3,
+            assets: int = 0
+        ):
+        """Chartist1D trades on single exchange based on sentiment
 
-    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0):
-        """
-        :param market: exchange agent link
-        :param cash: number of cash
-        :param assets: number of assets
+        :param market: link to exchange agent
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares, defaults 0 
         """
         super().__init__(market, cash, assets)
         self.type = 'Chartist'
@@ -362,21 +464,137 @@ class Chartist(Trader):
                 self.sentiment = 'Optimistic'
 
 
-class Universalist(Fundamentalist, Chartist):
+class Chartist2D(MultiTrader):
     """
-    Universalist mixes Fundamentalist, Chartist trading strategies allowing to change one strategy to another
+    Similar to Chartist1D but can trade on multiple exchanges
     """
-    def __init__(self, market: ExchangeAgent, cash: float | int, assets: int = 0, access: int = 1):
+    def __init__(
+            self,
+            markets: List[ExchangeAgent],
+            cash:    float | int = 10**3,
+            assets:  int = 0
+        ):
+        """Chartist2D trades on multiple exchanges based on sentiment
+
+        :param market: links to exchange agents
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares, defaults 0 
         """
-        :param market: exchange agent link
-        :param cash: number of cash
-        :param assets: number of assets
-        :param access: number of future dividends informed
+        super().__init__(markets, cash, assets)
+        self.type = 'Chartist'
+        self.sentiment = 'Optimistic' if random.random() > .5 else 'Pessimistic'
+
+    def call(self):
+        f = min if self.sentiment == 'Optimistic' else max                # agg based on sentiment
+        idx = f(self.markets, key=lambda idx: self.markets[idx].price())  # market with best price
+
+        random_state = random.random()
+        t_cost = self.markets[idx].transaction_cost
+        spread = self.markets[idx].spread()
+
+        if self.sentiment == 'Optimistic':
+            # Market order
+            if random_state > .85:
+                self._buy_market(
+                    idx,
+                    Random.draw_quantity()
+                )
+            # Limit order
+            if random_state > .5:
+                self._buy_limit(
+                    idx,
+                    Random.draw_quantity(),
+                    Random.draw_price('bid', spread) * (1 - t_cost)
+                )
+            # Cancel order
+            elif random_state < .35:
+                if self.orders[idx]:
+                    self._cancel_order(idx, self.orders[idx][-1])
+
+        elif self.sentiment == 'Pessimistic':
+            # Market order
+            if random_state > .85:
+                self._sell_market(
+                    idx,
+                    Random.draw_quantity()
+                )
+            # Limit order
+            if random_state > .5:
+                self._sell_limit(
+                    idx,
+                    Random.draw_quantity(),
+                    Random.draw_price('ask', spread) * (1 + t_cost)
+                )
+            # Cancel order
+            elif random_state < .35:
+                if self.orders[idx]:
+                    self._cancel_order(idx, self.orders[idx][-1])
+
+    def _get_types(self, info):
+        res = list()
+        for v in info.types.values():
+            res.append(v[-1] if v else None)
+        return res
+
+    def _get_sentiments(self, info):
+        res = list()
+        for v in info.sentiments.values():
+            res.append(v[-1] if v else None)
+        return res
+
+    def change_sentiment(self, info, a1=1, a2=1, v1=.1):
+        """
+        Revaluate chartist's opinion about future price movement
+
+        :param info: SimulatorInfo
+        :param a1: importance of chartists opinion
+        :param a2: importance of current price changes
+        :param v1: frequency of revaluation of opinion for sentiment
+        """
+        n_traders    = len(info.traders)  # number of all traders
+        n_chartists  = sum([tr_type == 'Chartist'    for tr_type in self._get_types(info)])
+        n_optimistic = sum([tr_type == 'Optimistic'  for tr_type in self._get_sentiments(info)])
+        n_pessimists = sum([tr_type == 'Pessimistic' for tr_type in self._get_sentiments(info)])
+
+        for idx in self.markets.keys():
+            dp = (
+                info.prices[idx][-1] - info.prices[idx][-2]  # price derivative
+                if len(info.prices[idx]) > 1 else 0
+            )
+            p = self.markets[idx].price()                    # market price
+            x = (n_optimistic - n_pessimists) / n_chartists
+
+            U = a1 * x + a2 / v1 * dp / p
+            if self.sentiment == 'Optimistic':
+                prob = v1 * n_chartists / n_traders * exp(U)
+                if prob > random.random():
+                    self.sentiment = 'Pessimistic'
+
+            elif self.sentiment == 'Pessimistic':
+                prob = v1 * n_chartists / n_traders * exp(-U)
+                if prob > random.random():
+                    self.sentiment = 'Optimistic'
+
+
+class Universalist(Fundamentalist, Chartist1D):
+    def __init__(
+            self,
+            market: ExchangeAgent,
+            cash:   float | int = 10**3,
+            assets: int = 0,
+            access: int = 0
+        ):
+        """Universalist chooses between Fundamentalist and Chartist1D strategies
+
+        :param market: link to exchange agent
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares hold, defaults 0
+        :param access: number of future dividends known, defaults 0 (knows only current dividend)
         """
         super().__init__(market, cash, assets)
-        self.type = 'Chartist' if random.random() > .5 else 'Fundamentalist'  # randomly decide type
-        self.sentiment = 'Optimistic' if random.random() > .5 else 'Pessimistic'  # sentiment about trend (Chartist)
-        self.access = access  # next n dividend payments known (Fundamentalist)
+        self.type      = 'Chartist'   if random.random() > .5 else 'Fundamentalist'  # randomly decide type
+        self.sentiment = 'Optimistic' if random.random() > .5 else 'Pessimistic'     # randomly decide sentiment (Chartist)
+        self.access = access                                                         # future dividends known (Fundamentalist)
 
     def _get_types(self, info):
         res = list()
@@ -401,7 +619,7 @@ class Universalist(Fundamentalist, Chartist):
         Call one of parents' methods depending on what type it is currently set.
         """
         if self.type == 'Chartist':
-            Chartist.call(self)
+            Chartist1D.call(self)
         elif self.type == 'Fundamentalist':
             Fundamentalist.call(self)
 
@@ -418,7 +636,7 @@ class Universalist(Fundamentalist, Chartist):
         :param s: importance of fundamental value opportunities
         """
         # Gather variables
-        n_traders    = len(info.traders)  # number of all traders
+        n_traders         = len(info.traders)  # number of all traders
         n_fundamentalists = sum([tr_type == 'Fundamentalist' for tr_type in self._get_types(info)])
         n_optimistic      = sum([tr_type == 'Optimistic'     for tr_type in self._get_sentiments(info)])
         n_pessimists      = sum([tr_type == 'Pessimistic'    for tr_type in self._get_sentiments(info)])
@@ -435,7 +653,7 @@ class Universalist(Fundamentalist, Chartist):
 
         # Change sentiment
         if self.type == 'Chartist':
-            Chartist.change_sentiment(self, info, a1, a2, v1)
+            Chartist1D.change_sentiment(self, info, a1, a2, v1)
 
         # Change strategy
         U1 = max(-100, min(100, a3 * ((r + 1 / v2 * dp) / p - R - s * abs((pf - p) / p))))
@@ -463,19 +681,28 @@ class Universalist(Fundamentalist, Chartist):
                 self.sentiment = 'Pessimistic'
 
 
-class MarketMaker(Trader):
-    """
-    MarketMaker creates limit orders on both sides of the spread trying to gain on
-    spread between bid and ask prices, and maintain its assets to cash ratio in balance.
-    """
+class MarketMaker1D(SingleTrader):
+    def __init__(
+            self,
+            market:    ExchangeAgent,
+            cash:      float | int = 10**3,
+            assets:    int = 0,
+            softlimit: int = 100
+        ):
+        """MarketMaker1D (single exchange) creates limit orders on both sides of the glass
 
-    def __init__(self, market: ExchangeAgent, cash: float = 10**3, assets: int = 0, softlimit: int = 100):
+        :param market: link to exchange agent
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares, defaults 0
+        :param softlimit: determines upper and lower limits, defaults 100
+        """
         super().__init__(market, cash, assets)
         self.type = 'Market Maker'
         self.softlimit = softlimit
-        self.ul = softlimit
-        self.ll = -softlimit
-        self.panic = False
+
+        self.ul = softlimit   # assets lower limit
+        self.ll = -softlimit  # assets upper limit
+        self.panic = False    # if in panic -> use market orders
 
     def call(self):
         # Clear previous orders
@@ -488,13 +715,68 @@ class MarketMaker(Trader):
         bid_volume = max(0., self.ul - 1 - self.assets)
         ask_volume = max(0., self.assets - self.ll - 1)
 
-        # If in panic state we only either sell or buy commodities
-        if not bid_volume or not ask_volume:
+        # If in panic state we use market orders
+        if not (bid_volume or ask_volume):
             self.panic = True
-            self._buy_market((self.ul + self.ll) / 2 - self.assets) if ask_volume is None else None
+            self._buy_market((self.ul + self.ll) / 2 - self.assets)  if ask_volume is None else None
             self._sell_market(self.assets - (self.ul + self.ll) / 2) if bid_volume is None else None
+        
+        # Otherwise use limit orders
         else:
             self.panic = False
             base_offset = -((spread['ask'] - spread['bid']) * (self.assets / self.softlimit))  # Price offset
-            self._buy_limit(bid_volume, spread['bid'] - base_offset - .1)  # BID
-            self._sell_limit(ask_volume, spread['ask'] + base_offset + .1)  # ASK
+            self._buy_limit(bid_volume, spread['bid'] - base_offset - .1)                      # BID
+            self._sell_limit(ask_volume, spread['ask'] + base_offset + .1)                     # ASK
+
+
+class MarketMaker2D(MultiTrader):
+    def __init__(
+            self,
+            markets:   List[ExchangeAgent],
+            cash:      float | int = 10**3,
+            assets:    int = 0,
+            softlimit: int = 100
+        ):
+        """MarketMaker2D (multi exchange) creates limit orders on both sides of the glass
+
+        :param markets: links to exchange agents
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares for each exchange, defaults 0
+        :param softlimit: determines upper and lower limits for each exchange, defaults 100
+        """
+        super().__init__(markets, cash, assets * len(markets))
+        self.type = 'Market Maker'
+        self.softlimit = softlimit
+
+        self.ul = softlimit   # assets lower limit
+        self.ll = -softlimit  # assets upper limit
+        self.panic = False    # if in panic -> use market orders
+        
+        self.available_pos = {market.id: assets for market in markets}  # available assets per market
+
+    def call(self):
+        for idx, market in self.markets.items():
+            # Clear previous orders
+            for order in self.orders[idx].copy():
+                self._cancel_order(idx, order)
+                self.available_pos[idx] += order.qty if order.order_type == 'bid' else -order.qty
+            
+            spread = market.spread()
+            pos = self.available_pos[idx]  # assets for current market
+
+            # Calculate bid and ask volume
+            bid_volume = max(0., self.ul - 1 - pos)
+            ask_volume = max(0., pos - self.ll - 1)
+
+            # If in panic state we only either sell or buy commodities
+            if  not (bid_volume or ask_volume):
+                self.panic = True
+                self._buy_market(idx, (self.ul + self.ll) / 2 - pos)  if ask_volume is None else None
+                self._sell_market(idx, pos - (self.ul + self.ll) / 2) if bid_volume is None else None
+
+            # If in panic state we use market orders
+            else:
+                self.panic = False
+                base_offset = -((spread['ask'] - spread['bid']) * (pos / self.softlimit))  # Price offset
+                self._buy_limit(idx, bid_volume, spread['bid'] - base_offset - .1)         # BID
+                self._sell_limit(idx, ask_volume, spread['ask'] + base_offset + .1)        # ASK
