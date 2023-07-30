@@ -744,39 +744,40 @@ class MarketMaker2D(MultiTrader):
         :param assets: trader's number of shares for each exchange, defaults 0
         :param softlimit: determines upper and lower limits for each exchange, defaults 100
         """
-        super().__init__(markets, cash, assets * len(markets))
+        super().__init__(markets, cash, assets)
         self.type = 'Market Maker'
         self.softlimit = softlimit
 
         self.ul = softlimit   # assets lower limit
         self.ll = -softlimit  # assets upper limit
         self.panic = False    # if in panic -> use market orders
-        
-        self.available_pos = {market.id: assets for market in markets}  # available assets per market
 
     def call(self):
+        # Clear previous orders
         for idx, market in self.markets.items():
-            # Clear previous orders
             for order in self.orders[idx].copy():
                 self._cancel_order(idx, order)
-                self.available_pos[idx] += order.qty if order.order_type == 'bid' else -order.qty
-            
-            spread = market.spread()
-            pos = self.available_pos[idx]  # assets for current market
+        
+        spread = market.spread()
+        pos = self.assets  # assets for current market
 
-            # Calculate bid and ask volume
-            bid_volume = max(0., self.ul - 1 - pos)
-            ask_volume = max(0., pos - self.ll - 1)
+        # Calculate bid and ask volume
+        bid_volume = max(0., self.ul - 1 - pos)
+        ask_volume = max(0., pos - self.ll - 1)
 
-            # If in panic state we only either sell or buy commodities
-            if  not (bid_volume or ask_volume):
-                self.panic = True
-                self._buy_market(idx, (self.ul + self.ll) / 2 - pos)  if ask_volume is None else None
-                self._sell_market(idx, pos - (self.ul + self.ll) / 2) if bid_volume is None else None
+        # Panic state
+        if not (bid_volume and ask_volume):
+            self.panic = True
+            if not bid_volume:
+                idx = max(self.markets, key=lambda idx: self.markets[idx].price())  # market with best price
+                self._sell_market(idx, pos - (self.ul + self.ll) / 2)
+            elif not ask_volume:
+                idx = min(self.markets, key=lambda idx: self.markets[idx].price())  # market with best price
+                self._buy_market(idx, (self.ul + self.ll) / 2 - pos)
 
-            # If in panic state we use market orders
-            else:
-                self.panic = False
-                base_offset = -((spread['ask'] - spread['bid']) * (pos / self.softlimit))  # Price offset
-                self._buy_limit(idx, bid_volume, spread['bid'] - base_offset - .1)         # BID
-                self._sell_limit(idx, ask_volume, spread['ask'] + base_offset + .1)        # ASK
+        # Stable state
+        for idx, market in self.markets.items():
+            self.panic = False
+            base_offset = -((spread['ask'] - spread['bid']) * (pos / self.softlimit))  # Price offset
+            self._buy_limit(idx, bid_volume, spread['bid'] - base_offset - .1)         # BID
+            self._sell_limit(idx, ask_volume, spread['ask'] + base_offset + .1)        # ASK
