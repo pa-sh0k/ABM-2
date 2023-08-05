@@ -1,25 +1,39 @@
 from AgentBasedModel import *
+from AgentBasedModel.extra import *
+from AgentBasedModel.visualization import (
+    plot_price,
+    plot_price_fundamental
+)
+from random import randint
 
+# Define parameters
 risk_free_rate = 5e-4
-
 price = 100
 dividend = price * risk_free_rate
 
-asset = Stock(dividend)
+# Initialize objects
+assets = [
+    Stock(dividend) for _ in range(3)
+]
+exchanges = [
+    ExchangeAgent(assets[0], risk_free_rate) for i in range(3)  # single asset
+]
+traders = [
+    *[Random(exchanges[randint(0, 2)])         for _ in range(20)],
+    *[Fundamentalist(exchanges[randint(0, 2)]) for _ in range(20)],
+    *[Chartist2D(exchanges)                    for _ in range(20)],
+    *[MarketMaker2D(exchanges)                 for _ in range(3)]
+]
 
-exchange = ExchangeAgent(asset, risk_free_rate, mean=price, n=1000)
+# Run simulation
 simulator = Simulator(**{
-    'asset': asset,
-    'exchange': exchange,
-    'traders': [
-        *[Random(exchange, 10**3)         for _ in range(10)],
-        *[Fundamentalist(exchange, 10**3) for _ in range(10)],
-        *[Chartist(exchange, 10**3)       for _ in range(10)]
-    ],
-    'events': [MarketPriceShock(200, -20)]
+    'assets': assets,
+    'exchanges': exchanges,
+    'traders': traders,
+    'events': [MarketPriceShock(0, 200, -5)]
 })
 
 info = simulator.info
 simulator.simulate(500, silent=False)
 
-plot_price_fundamental(info)
+plot_price_fundamental(info, None, rolling=1)

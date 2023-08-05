@@ -735,7 +735,7 @@ class MarketMaker2D(MultiTrader):
             markets:   List[ExchangeAgent],
             cash:      float | int = 10**3,
             assets:    int = 0,
-            softlimit: int = 100
+            softlimit: int = 10
         ):
         """MarketMaker2D (multi exchange) creates limit orders on both sides of the glass
 
@@ -759,25 +759,24 @@ class MarketMaker2D(MultiTrader):
                 self._cancel_order(idx, order)
         
         spread = market.spread()
-        pos = self.assets  # assets for current market
 
         # Calculate bid and ask volume
-        bid_volume = max(0., self.ul - 1 - pos)
-        ask_volume = max(0., pos - self.ll - 1)
+        bid_volume = max(0., self.ul - 1 - self.assets)
+        ask_volume = max(0., self.assets - self.ll - 1)
 
         # Panic state
         if not (bid_volume and ask_volume):
             self.panic = True
             if not bid_volume:
                 idx = max(self.markets, key=lambda idx: self.markets[idx].price())  # market with best price
-                self._sell_market(idx, pos - (self.ul + self.ll) / 2)
+                self._sell_market(idx, self.assets - (self.ul + self.ll) / 2)
             elif not ask_volume:
                 idx = min(self.markets, key=lambda idx: self.markets[idx].price())  # market with best price
-                self._buy_market(idx, (self.ul + self.ll) / 2 - pos)
+                self._buy_market(idx, (self.ul + self.ll) / 2 - self.assets)
 
         # Stable state
         for idx, market in self.markets.items():
             self.panic = False
-            base_offset = -((spread['ask'] - spread['bid']) * (pos / self.softlimit))  # Price offset
-            self._buy_limit(idx, bid_volume, spread['bid'] - base_offset - .1)         # BID
-            self._sell_limit(idx, ask_volume, spread['ask'] + base_offset + .1)        # ASK
+            base_offset = -((spread['ask'] - spread['bid']) * (self.assets / self.softlimit))  # Price offset
+            self._buy_limit(idx, bid_volume, spread['bid'] - base_offset - .1)                 # BID
+            self._sell_limit(idx, ask_volume, spread['ask'] + base_offset + .1)                # ASK

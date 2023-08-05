@@ -59,7 +59,54 @@ def plot_price_fundamental(
         rolling: int   = 1,
         figsize: tuple = (6, 6)
     ):
-    """Lineplot stock market price and fundamental price
+    """Lineplot stock market price and fundamental price (single asset)
+
+    :param info: SimulatorInfo instance
+    :param idx: ExchangeAgent id, defaults to None (all exchanges)
+    :parap access: Fundamentalist's number of known dividends, defaults to 0
+    :param rolling: MA applied to list, defaults to 1
+    :param figsize: figure size, defaults to (6, 6)
+    """
+    plt.figure(figsize=figsize)
+    plt.title(
+              'Stock Market and Fundamental price' if rolling == 1
+        else f'Stock Market and Fundamental price (MA {rolling})'
+    )
+    plt.xlabel('Iterations')
+    plt.ylabel('Price')
+
+    # plot 1 exchange
+    if idx is not None:
+        exchange = info.exchanges[idx]
+        m_values = math.rolling(info.prices[idx], rolling)                     # market prices
+        f_values = math.rolling(info.fundamental_value(idx, access), rolling)  # fundamental prices
+        iterations = range(rolling - 1, len(m_values) + rolling - 1)
+
+        plt.plot(iterations, m_values, color='tab:blue', alpha=1,  ls='-',  label=f'{exchange.name}: market')
+        plt.plot(iterations, f_values, color='black',    alpha=.6, ls='--', label=f'{exchange.name}: fundamental')
+    
+    # plot N exchanges
+    else:
+        for k, v in info.exchanges.items():
+            m_values = math.rolling(info.prices[k], rolling)                   # market prices
+            iterations = range(rolling - 1, len(m_values) + rolling - 1)
+            plt.plot(iterations, m_values, ls='-', label=f'{v.name}: market')
+
+        f_values = math.rolling(info.fundamental_value(0, access), rolling)    # fundamental prices
+        plt.plot(iterations, f_values, color='black', alpha=.6, ls='--', label=f'fundamental')
+
+    plt.legend()
+    plt.show()
+
+
+def plot_price_fundamental_m(
+        info:    SimulatorInfo,
+        idx:     int   = None,
+        access:  int   = 0,
+        rolling: int   = 1,
+        figsize: tuple = (6, 6)
+    ):
+    """Lineplot stock market price and fundamental price (multiple assets)
 
     :param info: SimulatorInfo instance
     :param idx: ExchangeAgent id, defaults to None (all exchanges)
