@@ -22,7 +22,7 @@ traders = [
     *[Random(exchanges[randint(0, 2)])         for _ in range(20)],
     *[Fundamentalist(exchanges[randint(0, 2)]) for _ in range(20)],
     *[Chartist2D(exchanges)                    for _ in range(20)],
-    *[MarketMaker2D(exchanges)                 for _ in range(3)]
+    *[MarketMaker2D(exchanges)                 for _ in range(4)]
 ]
 
 # Run simulation
@@ -30,10 +30,10 @@ simulator = Simulator(**{
     'assets': assets,
     'exchanges': exchanges,
     'traders': traders,
-    'events': [MarketPriceShock(0, 200, -5)]
+    'events': [MarketPriceShock(0, 200, -10)]
 })
 
 info = simulator.info
 simulator.simulate(500, silent=False)
 
-plot_price_fundamental(info, None, rolling=1)
+plot_price(info, None, rolling=1)

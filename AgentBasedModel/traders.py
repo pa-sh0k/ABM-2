@@ -758,8 +758,6 @@ class MarketMaker2D(MultiTrader):
             for order in self.orders[idx].copy():
                 self._cancel_order(idx, order)
         
-        spread = market.spread()
-
         # Calculate bid and ask volume
         bid_volume = max(0., self.ul - 1 - self.assets)
         ask_volume = max(0., self.assets - self.ll - 1)
@@ -768,15 +766,17 @@ class MarketMaker2D(MultiTrader):
         if not (bid_volume and ask_volume):
             self.panic = True
             if not bid_volume:
-                idx = max(self.markets, key=lambda idx: self.markets[idx].price())  # market with best price
+                idx = max(self.markets, key=lambda idx: self.markets[idx].price())  # market with the best price
                 self._sell_market(idx, self.assets - (self.ul + self.ll) / 2)
             elif not ask_volume:
-                idx = min(self.markets, key=lambda idx: self.markets[idx].price())  # market with best price
+                idx = min(self.markets, key=lambda idx: self.markets[idx].price())  # market with the best price
                 self._buy_market(idx, (self.ul + self.ll) / 2 - self.assets)
-
+        
         # Stable state
-        for idx, market in self.markets.items():
-            self.panic = False
-            base_offset = -((spread['ask'] - spread['bid']) * (self.assets / self.softlimit))  # Price offset
-            self._buy_limit(idx, bid_volume, spread['bid'] - base_offset - .1)                 # BID
-            self._sell_limit(idx, ask_volume, spread['ask'] + base_offset + .1)                # ASK
+        else:
+            for idx, market in self.markets.items():
+                self.panic = False
+                spread = market.spread()
+                base_offset = -((spread['ask'] - spread['bid']) * (self.assets / self.softlimit))  # Price offset
+                self._buy_limit(idx, bid_volume, spread['bid'] - base_offset - .1)                 # BID
+                self._sell_limit(idx, ask_volume, spread['ask'] + base_offset + .1)                # ASK
