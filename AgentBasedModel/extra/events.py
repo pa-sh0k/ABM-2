@@ -38,8 +38,10 @@ class Event:
         :param simulator: Simulator instance
         :return: Event instance
         """
-        self.asset = simulator.exchanges[self.idx].asset
-        self.exchange = simulator.exchanges[self.idx]
+        exchanges = {exchange.id: exchange for exchange in simulator.exchanges}
+        
+        self.exchange = exchanges[self.idx]
+        self.asset = self.exchange.asset
         self.simulator = simulator
         return self
 

@@ -54,6 +54,9 @@ class Simulator:
                     trader.change_sentiment(self.info)
 
                 trader.call()    # trader's action
+            
+            # Pay Traders
+            for trader in self.traders:
                 trader.income()  # trader's dividend and interest
 
             # Update assets
