@@ -10,7 +10,7 @@ from AgentBasedModel.traders import (
 )
 from AgentBasedModel.extra import Event
 from AgentBasedModel.utils.math import mean, std, rolling
-
+from config import seed
 import random
 from tqdm import tqdm
 
@@ -35,14 +35,18 @@ class Simulator:
         self.info = SimulatorInfo(exchanges, traders)
 
     def simulate(self, n_iter: int, silent: bool = False) -> object:
+        global seed
         for it in tqdm(range(n_iter), desc='Simulation', disable=silent):
+            random.seed(seed)
             # Call scenario
             if self.events:
                 for event in self.events:
                     event.call(it)
 
-            # Capture current info
             self.info.capture()
+
+            for exchange in self.exchanges:
+                exchange.last_trades = []
 
             # Call Traders
             random.shuffle(self.traders)
@@ -62,7 +66,7 @@ class Simulator:
             # Update assets
             for asset in self.assets:
                 asset.update()  # generate next dividend
-
+            seed += 1
         return self
 
 
@@ -78,11 +82,22 @@ class SimulatorInfo:
         self.exchanges = {exchange.id: exchange for exchange in exchanges}
         self.traders   = {trader.id: trader for trader in traders}
 
+        self.trades = {idx: list() for idx in self.exchanges.keys()}
+
         # Market Statistics
         self.prices    = {idx: list() for idx in self.exchanges.keys()}  # exchange: price at the end of iteration
         self.spreads   = {idx: list() for idx in self.exchanges.keys()}  # exchange: bid-ask spreads
         self.dividends = {idx: list() for idx in self.exchanges.keys()}  # exchange: dividend paid at each iteration
         self.orders    = {idx: list() for idx in self.exchanges.keys()}  # exchange: order book statistics
+        self.ob_imbs   = {idx: list() for idx in self.exchanges.keys()}  # exchange: order book imbalances
+        self.smart_pr  = {idx: list() for idx in self.exchanges.keys()}  # exchange: smart prices
+        self.ba_imbs   = {idx: list() for idx in self.exchanges.keys()}  # exchange: bid-ask imbalances at L1
+        self.tr_signs  = {idx: list() for idx in self.exchanges.keys()}  # exchange: trade signs
+        self.sign_vol  = {idx: list() for idx in self.exchanges.keys()}  # exchange: signed transaction volume
+        self.prets     = {idx: list() for idx in self.exchanges.keys()}  # exchange: past returns
+        self.volume    = {idx: list() for idx in self.exchanges.keys()}  # exchange: volume
+        self.ag_buys   = {idx: list() for idx in self.exchanges.keys()}  # exchange: aggressive buys percentage (volume-based)
+        self.ag_sells  = {idx: list() for idx in self.exchanges.keys()}  # exchange: aggressive buys percentage (volume-based)
 
         # Agent statistics
         self.cash       = {idx: list() for idx in self.traders.keys()}  # trader: cash
@@ -120,6 +135,17 @@ class SimulatorInfo:
             self.prices[idx].append(exchange.price())
             self.spreads[idx].append(exchange.spread())
             self.dividends[idx].append(exchange.dividend())
+            self.ob_imbs[idx].append(exchange.ob_imb())
+            self.smart_pr[idx].append(exchange.smart_price())
+            self.ba_imbs[idx].append(exchange.ba_imb())
+            self.tr_signs[idx].append(exchange.trade_sign())
+            self.sign_vol[idx].append(exchange.signed_tx_vol())
+            self.prets[idx].append(exchange.pret())
+            self.volume[idx].append(exchange.last_volume())
+            self.ag_buys[idx].append(exchange.aggressive_volume_percentage(side=1))
+            self.ag_sells[idx].append(exchange.aggressive_volume_percentage(side=0))
+
+            self.trades[idx] += exchange.last_trades
 
             # Order book details
             self.orders[idx].append({
@@ -248,3 +274,25 @@ class SimulatorInfo:
         liq = [spreads[i] / prices[i] for i in range(len(prices))]
 
         return rolling(liq, roll)
+
+    def vwap(self, idx: int, roll: int = 1) -> list:
+        """
+        # VWAP
+        :param idx: ExchangeAgent id
+        :param roll: VWAP window length
+        """
+        vwap = []
+        prices = self.prices[idx]
+        volumes = self.volume[idx]
+        window_length = min(roll, len(prices))
+
+        for i in range(len(prices) - window_length + 1):
+            price_window = prices[i:i + window_length]
+            volume_window = volumes[i:i + window_length]
+
+            total_pv = sum(p * v for p, v in zip(price_window, volume_window))
+            total_volume = sum(volume_window)
+
+            vwap.append(total_pv / total_volume if total_volume != 0 else 0)
+
+        return vwap

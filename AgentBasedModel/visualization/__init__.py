@@ -18,5 +18,10 @@ from AgentBasedModel.visualization.market import (
 #     plot_sentiments2
 # )
 from AgentBasedModel.visualization.other import (
-    plot_book_stat
+    plot_book_stat,
+    plot_orderbook,
+    plot_orderbook_with_depth,
+    plot_feature_distributions,
+    plot_feature_chronology
+
 )

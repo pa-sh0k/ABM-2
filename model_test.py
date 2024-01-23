@@ -1,17 +1,9 @@
 from AgentBasedModel import *
 from AgentBasedModel.extra import *
-from AgentBasedModel.visualization import (
-    plot_price,
-    plot_price_fundamental,
-    plot_orderbook_with_depth,
-    plot_feature_chronology,
-    plot_feature_distributions
-)
-from AgentBasedModel.utils import ob_imbalance
-
 from random import randint
 import random
 from config import seed
+from model import iterative_training
 
 random.seed(seed)
 
@@ -35,20 +27,12 @@ traders = [
 ]
 
 # Run simulation
-simulator = Simulator(**{
+settings = {
     'assets': assets,
     'exchanges': exchanges,
     'traders': traders,
-    'events': [MarketPriceShock(0, 200, -10)]
-})
+    'events': []
+}
 
-plot_orderbook_with_depth(0.02, simulator.info, exchange_ind=1)
-
-simulator.simulate(100, silent=False)
-
-plot_feature_chronology(simulator.info, 1)
-plot_feature_distributions(simulator.info, 1)
-
-# print(len(simulator.info.trades[0]))
-
-# plot_price(simulator.info, None, rolling=1)
+model, acc = iterative_training(1, 5, settings)
+print(acc)

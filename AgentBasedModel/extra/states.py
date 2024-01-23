@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import AgentBasedModel.utils.math as math
 
 from scipy.stats import kendalltau
@@ -168,8 +170,8 @@ def general_states(
     """Classify market states on the simulation timeline sections
 
     1) Measure price trend, volatility value, volatility trend with rolling **window**
-    2) Divide simulation timeline with non-intersecting section of lenght **size**
-    3) Determing market state for each section
+    2) Divide simulation timeline with non-intersecting section of length **size**
+    3) Determining market state for each section
 
     :param info: SimulatorInfo
     :param idx: ExchangeAgent id

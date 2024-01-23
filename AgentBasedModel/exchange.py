@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Type
 
 from AgentBasedModel.utils import Order, OrderList
@@ -43,7 +45,7 @@ class Stock(Asset):
 
     def _fill_book(self, n: int = 100):
         """
-        Fill fill dividend book with future dividends.
+        Fill dividend book with future dividends.
         
         :param n: number of dividends to fill
         """
@@ -94,6 +96,9 @@ class ExchangeAgent:
         self.asset = asset
         self.risk_free_rate = risk_free_rate
         self.transaction_cost = transaction_cost
+        self.last_trades = []
+        self.last_price = 0
+        self.aggr_baseline = 0.03  # the percentage of volume for which an order should constitute for to be counted as aggressive
 
         self.order_book = self.order_book = {'bid': OrderList('bid'), 'ask': OrderList('ask')}
         self._fill_book(mean, std, n)
@@ -153,6 +158,111 @@ class ExchangeAgent:
             return round((spread['bid'] + spread['ask']) / 2, 1)
         raise Exception(f'Price cannot be determined, since no orders either bid or ask')
 
+    def ob_imb(self) -> float:
+        """
+        Returns orderbook imbalance in range [-1, 1]
+        """
+
+        if not self.order_book['bid'] or not self.order_book['ask']:
+            raise Exception(f'There no either bid or ask orders')
+
+        b = self.order_book['bid'].first.qty
+        a = self.order_book['ask'].first.qty
+
+        return (b - a) / (b + a)
+
+    def smart_price(self) -> float:
+        """
+        Returns smart price: average of the bid and ask prices weighted according to their inverse volume
+        """
+        if not self.order_book['bid'] or not self.order_book['ask']:
+            raise Exception(f'There no either bid or ask orders')
+
+        b = self.order_book['bid'].first
+        a = self.order_book['ask'].first
+
+        return (b.price * b.qty + a.price * a.qty) / (b.qty + a.qty) / ((a.price + b.price) / 2) - 1
+
+    def ba_imb(self) -> float:
+        """
+        Returns bid-ask imbalance:
+        """
+
+        if not self.order_book['bid'] or not self.order_book['ask']:
+            raise Exception(f'There no either bid or ask orders')
+
+        return self.order_book['bid'].first.qty - self.order_book['ask'].first.qty
+
+    def trade_sign(self) -> float:
+        """
+         A feature measuring whether buyers or sellers crossed the spread more frequently in recent executions.
+         More buys = 1
+         More sells = -1
+        """
+        if not len(self.last_trades):
+            return 0
+
+        buy_number = len([order for order in self.last_trades if order['order_type'] == 'bid'])
+        sell_number = len(self.last_trades) - buy_number
+
+        return 1 if buy_number > sell_number else -1
+
+    def signed_tx_vol(self) -> float:
+        """
+        A signed quantity indicating the number of shares bought in the last tick minus number of shares sold in the last tick
+        """
+        if not len(self.last_trades):
+            return 0
+
+        buy_volume = sum([order['qty'] for order in self.last_trades if order['order_type'] == 'bid'])
+        sell_volume = sum([order['qty'] for order in self.last_trades if order['order_type'] == 'ask'])
+        # print([order.qty for order in self.last_orders])
+        return (buy_volume - sell_volume) / (buy_volume + sell_volume)
+
+    def last_volume(self) -> float:
+        """
+        Just volume of the tick
+        """
+        if not len(self.last_trades):
+            return 0
+
+        return sum([order['qty'] for order in self.last_trades])
+
+    def pret(self) -> float:
+        """
+        Calculate past returns in basis points
+        """
+
+        # trade_sum = sum([order['price'] * order['qty'] for order in self.last_trades])
+        # weight_sum = sum([order['qty'] for order in self.last_trades])
+        # if not weight_sum:
+        #     return 0
+
+        current_price = (self.order_book['bid'].first.price + self.order_book['ask'].first.price) / 2
+
+        if not self.last_price:
+            self.last_price = current_price
+            return 0
+
+        past_returns = (current_price / self.last_price - 1) * 10000
+        self.last_price = current_price
+        return past_returns
+
+    def aggressive_volume_percentage(self, side: int = 0):
+        """
+        Aggressive order percentage
+        :param side: 0 - sells, 1 - buy
+        """
+
+        if not side:
+            volume = sum([order['qty'] for order in self.last_trades if order['order_type'] == 'ask'])
+            orders = [order for order in self.last_trades if order['order_type'] == 'ask']
+        else:
+            volume = sum([order['qty'] for order in self.last_trades if order['order_type'] == 'bid'])
+            orders = [order for order in self.last_trades if order['order_type'] == 'bid']
+
+        return sum([order['qty'] / volume for order in orders if order['qty'] / volume > self.aggr_baseline])
+
     def dividend(self, access: int = None) -> list | float | int:
         """
         :param access:
@@ -195,6 +305,8 @@ class ExchangeAgent:
         t_cost = self.transaction_cost
         if not order.qty:
             return order
+
+        self.last_trades.append({"price": order.price, "qty": order.qty, "order_type": order.order_type})
         
         if order.order_type == 'bid':
             order = self.order_book['ask'].fulfill(order, t_cost)

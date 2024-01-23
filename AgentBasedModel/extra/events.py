@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from AgentBasedModel.traders import SingleTrader, Universalist, Fundamentalist, MarketMaker1D
 from AgentBasedModel.utils.orders import Order
 from itertools import chain
