@@ -1,9 +1,17 @@
 from AgentBasedModel import *
 from AgentBasedModel.extra import *
+from AgentBasedModel.visualization import (
+    plot_price,
+    plot_price_fundamental,
+    plot_orderbook_with_depth,
+    plot_feature_chronology,
+    plot_feature_distributions
+)
+from AgentBasedModel.utils import ob_imbalance
+
 from random import randint
 import random
 from config import seed
-from model import iterative_training
 
 random.seed(seed)
 
@@ -19,20 +27,39 @@ assets = [
 exchanges = [
     ExchangeAgent(assets[0], risk_free_rate) for i in range(3)  # single asset
 ]
+
+features = ['smart_pr', 'prets', 'tr_signs']
+
+pred_trader = PredictingTrader(exchanges[1], features)
 traders = [
     *[Random(exchanges[randint(0, 2)])         for _ in range(20)],
     *[Fundamentalist(exchanges[randint(0, 2)]) for _ in range(20)],
     *[Chartist2D(exchanges)                    for _ in range(20)],
-    *[MarketMaker2D(exchanges)                 for _ in range(4)]
+    *[MarketMaker2D(exchanges)                 for _ in range(4)],
+    *[pred_trader]
 ]
 
-# Run simulation
-settings = {
-    'assets': assets,
-    'exchanges': exchanges,
-    'traders': traders,
-    'events': []
-}
+for _ in range(5):
+    simulator = Simulator(**{
+        'assets': assets,
+        'exchanges': exchanges,
+        'traders': traders,
+        'events': [MarketPriceShock(0, 200, -10)]
+    })
+    simulator.simulate(200, silent=False)
+    pred_trader.train(1)
+    seed += 1
 
-model, acc = iterative_training(1, 5, settings)
-print(acc)
+pred_trader.active = True
+
+simulator = Simulator(**{
+        'assets': assets,
+        'exchanges': exchanges,
+        'traders': traders,
+        'events': [MarketPriceShock(0, 200, -10)]
+    })
+simulator.simulate(200, silent=False)
+
+print(f"FINAL ASSETS: {pred_trader.assets}")
+print(f"FINAL CASH: {pred_trader.cash}")
+# initial cash for prediction trader is 100

@@ -6,7 +6,8 @@ from AgentBasedModel.traders import (
     Universalist,
     Chartist1D,
     Chartist2D,
-    Fundamentalist
+    Fundamentalist,
+    PredictingTrader
 )
 from AgentBasedModel.extra import Event
 from AgentBasedModel.utils.math import mean, std, rolling
@@ -56,7 +57,8 @@ class Simulator:
                     trader.change_strategy(self.info)
                 if type(trader) in (Universalist, Chartist1D, Chartist2D):
                     trader.change_sentiment(self.info)
-
+                if type(trader) == PredictingTrader:
+                    trader.update_info(self.info)
                 trader.call()    # trader's action
             
             # Pay Traders
@@ -85,19 +87,21 @@ class SimulatorInfo:
         self.trades = {idx: list() for idx in self.exchanges.keys()}
 
         # Market Statistics
-        self.prices    = {idx: list() for idx in self.exchanges.keys()}  # exchange: price at the end of iteration
-        self.spreads   = {idx: list() for idx in self.exchanges.keys()}  # exchange: bid-ask spreads
-        self.dividends = {idx: list() for idx in self.exchanges.keys()}  # exchange: dividend paid at each iteration
-        self.orders    = {idx: list() for idx in self.exchanges.keys()}  # exchange: order book statistics
-        self.ob_imbs   = {idx: list() for idx in self.exchanges.keys()}  # exchange: order book imbalances
-        self.smart_pr  = {idx: list() for idx in self.exchanges.keys()}  # exchange: smart prices
-        self.ba_imbs   = {idx: list() for idx in self.exchanges.keys()}  # exchange: bid-ask imbalances at L1
-        self.tr_signs  = {idx: list() for idx in self.exchanges.keys()}  # exchange: trade signs
-        self.sign_vol  = {idx: list() for idx in self.exchanges.keys()}  # exchange: signed transaction volume
-        self.prets     = {idx: list() for idx in self.exchanges.keys()}  # exchange: past returns
-        self.volume    = {idx: list() for idx in self.exchanges.keys()}  # exchange: volume
-        self.ag_buys   = {idx: list() for idx in self.exchanges.keys()}  # exchange: aggressive buys percentage (volume-based)
-        self.ag_sells  = {idx: list() for idx in self.exchanges.keys()}  # exchange: aggressive buys percentage (volume-based)
+        self.prices      = {idx: list() for idx in self.exchanges.keys()}  # exchange: price at the end of iteration
+        self.spreads     = {idx: list() for idx in self.exchanges.keys()}  # exchange: bid-ask spreads
+        self.dividends   = {idx: list() for idx in self.exchanges.keys()}  # exchange: dividend paid at each iteration
+        self.orders      = {idx: list() for idx in self.exchanges.keys()}  # exchange: order book statistics
+        self.smart_pr    = {idx: list() for idx in self.exchanges.keys()}  # exchange: smart prices
+        self.tr_signs    = {idx: list() for idx in self.exchanges.keys()}  # exchange: trade signs
+        self.prets       = {idx: list() for idx in self.exchanges.keys()}  # exchange: past returns
+        self.volume      = {idx: list() for idx in self.exchanges.keys()}  # exchange: volume
+        self.norm_spread = {idx: list() for idx in self.exchanges.keys()}  # exchange: normalized spread
+
+        # Statistics needed to calculate features with rolling windows
+        self.ob_imbs = {idx: list() for idx in self.exchanges.keys()}  # exchange: order book imbalances
+        self.ag_buys = {idx: list() for idx in self.exchanges.keys()}  # exchange: aggressive buys percentage (volume-based)
+        self.ag_sells = {idx: list() for idx in self.exchanges.keys()}  # exchange: aggressive buys percentage (volume-based)
+        self.sign_vol = {idx: list() for idx in self.exchanges.keys()}  # exchange: signed transaction volume
 
         # Agent statistics
         self.cash       = {idx: list() for idx in self.traders.keys()}  # trader: cash
@@ -135,24 +139,23 @@ class SimulatorInfo:
             self.prices[idx].append(exchange.price())
             self.spreads[idx].append(exchange.spread())
             self.dividends[idx].append(exchange.dividend())
-            self.ob_imbs[idx].append(exchange.ob_imb())
             self.smart_pr[idx].append(exchange.smart_price())
-            self.ba_imbs[idx].append(exchange.ba_imb())
             self.tr_signs[idx].append(exchange.trade_sign())
-            self.sign_vol[idx].append(exchange.signed_tx_vol())
             self.prets[idx].append(exchange.pret())
             self.volume[idx].append(exchange.last_volume())
-            self.ag_buys[idx].append(exchange.aggressive_volume_percentage(side=1))
-            self.ag_sells[idx].append(exchange.aggressive_volume_percentage(side=0))
+            self.norm_spread[idx].append(exchange.norm_spread())
+            # self.ob_imbs[idx].append(exchange.ob_imb())
+            # self.ba_imbs[idx].append(exchange.ba_imb())
+            # self.sign_vol[idx].append(exchange.signed_tx_vol())
+            # self.ag_buys[idx].append(exchange.aggressive_volume_percentage(side=1))
+            # self.ag_sells[idx].append(exchange.aggressive_volume_percentage(side=0))
 
-            self.trades[idx] += exchange.last_trades
+            self.trades[idx].append(exchange.last_trades)
 
             # Order book details
             self.orders[idx].append({
-                'quantity': {
-                    'bid': len(exchange.order_book['bid']),
-                    'ask': len(exchange.order_book['ask'])
-                },
+                'bid': len(exchange.order_book['bid']),
+                'ask': len(exchange.order_book['ask'])
                 # 'price mean': {
                 #     'bid': mean([order.price for order in self.exchange.order_book['bid']]),
                 #     'ask': mean([order.price for order in self.exchange.order_book['ask']])
@@ -296,3 +299,72 @@ class SimulatorInfo:
             vwap.append(total_pv / total_volume if total_volume != 0 else 0)
 
         return vwap
+
+    def rolling_ob_imbalance(self, idx: int, roll: int = 1) -> list:
+        """
+        # Orderbook imbalances
+        :param idx: ExchangeAgent id
+        :param roll: orderbook imbalance window length
+        """
+
+        orders = self.orders[idx]
+        window_length = min(roll, len(orders))
+
+        ob_imb = []
+        for i in range(len(orders) - window_length + 1):
+            order_window = orders[i:i + window_length]
+
+            total_b = sum(order['bid'].first.qty for order in order_window)
+            total_a = sum(order['ask'].first.qty for order in order_window)
+
+            ob_imb.append((total_b - total_a) / (total_b + total_a))
+
+        return ob_imb
+
+    def rolling_signed_volume(self, idx: int, roll: int = 1) -> list:
+        """
+        # Rolling signed volume
+        :param idx: ExchangeAgent id
+        :param roll: signed volume window length
+        """
+
+        trades = self.trades[idx]
+        window_length = min(roll, len(trades))
+
+        signed_vol = []
+        for i in range(len(trades) - window_length + 1):
+            trades_window = trades[i:i + window_length]
+
+            total_b = sum(order['qty'] for order in trades_window if order['order_type'] == 'bid')
+            total_a = sum(order['qty'] for order in trades_window if order['order_type'] == 'ask')
+
+            signed_vol.append((total_b - total_a) / (total_b + total_a))
+
+        return signed_vol
+
+    def window_aggressive_vol(self, idx: int, roll: int = 1, baseline: int = 300, side: int = 0) -> list:
+        """
+        # Rolling aggressive volume
+        :param idx: ExchangeAgent id
+        :param roll: aggressive volume window length
+        :param baseline: aggressiveness baseline in bps
+        :param side: buys or sells, where 0 - sells, 1 - buy
+        """
+
+        trades = self.trades[idx]
+        window_length = min(roll, len(trades))
+
+        aggr_vol = []
+        for i in range(len(trades) - window_length + 1):
+            trades_window = trades[i:i + window_length]
+
+            if not side:
+                volume = sum([order['qty'] for order in trades_window if order['order_type'] == 'ask'])
+                orders = [order for order in trades_window if order['order_type'] == 'ask']
+            else:
+                volume = sum([order['qty'] for order in trades_window if order['order_type'] == 'bid'])
+                orders = [order for order in trades_window if order['order_type'] == 'bid']
+            aggr_vol_value = sum([order['qty'] / volume for order in orders if 10000 * order['qty'] / volume > baseline])
+            aggr_vol.append(aggr_vol_value)
+
+        return aggr_vol

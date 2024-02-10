@@ -9,7 +9,8 @@ from AgentBasedModel.traders import (
     Chartist2D,
     Universalist,
     MarketMaker1D,
-    MarketMaker2D
+    MarketMaker2D,
+    PredictingTrader
 )
 from AgentBasedModel.simulator import (
     Simulator,

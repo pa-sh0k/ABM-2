@@ -171,6 +171,18 @@ class ExchangeAgent:
 
         return (b - a) / (b + a)
 
+    def norm_spread(self) -> float:
+        """
+        Returns normalized spread
+        """
+        if not self.order_book['bid'] or not self.order_book['ask']:
+            raise Exception(f'There no either bid or ask orders')
+
+        b = self.order_book['bid'].first.price
+        a = self.order_book['ask'].first.price
+
+        return (a - b) / ((b + a) / 2)
+
     def smart_price(self) -> float:
         """
         Returns smart price: average of the bid and ask prices weighted according to their inverse volume

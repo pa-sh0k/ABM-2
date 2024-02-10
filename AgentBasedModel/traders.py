@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from typing import List
-
+import xgboost as xgb
+import pandas as pd
+from numpy import sign
+from sklearn.exceptions import NotFittedError
+from sklearn.metrics import accuracy_score
 from AgentBasedModel.exchange import ExchangeAgent
 from AgentBasedModel.utils import Order
 from AgentBasedModel.utils.math import exp, mean
@@ -89,6 +93,148 @@ class SingleTrader(Trader):
         if not self.market.order_book['bid']:
             return quantity
         
+        price = self.market.order_book['bid'].last.price
+        order = Order(price, round(quantity), 'ask', self)
+        return self.market.market_order(order).qty
+
+    def _cancel_order(self, order: Order):
+        self.market.cancel_order(order)
+        self.orders.remove(order)
+
+
+class PredictingTrader(Trader):
+    def __init__(
+            self,
+            market: ExchangeAgent,
+            features: List,
+            cash: float | int = 10 ** 2,
+            assets: int = 0,
+            indif_threshold: float = 0.0001
+    ):
+        """PredictingTrader trades on a single exchange and uses XGBoost for predicting the price movement, uses only market orders
+
+        :param market: link to exchange agent
+        :param features: list of features based on which PredictingTrader makes predictions
+        :param cash: trader's cash available, defaults 10**3
+        :param assets: trader's number of shares, defaults 0
+        :param indif_threshold: maximum absolute price change for which we assume that the flat continues
+        """
+        super().__init__(cash, assets)
+        self.market = market
+        self.features = features
+        self.orders = list()
+        self.model = xgb.XGBClassifier(objective='binary:logistic', use_label_encoder=False, eval_metric='logloss')
+        self.info = None
+        self.active = False
+        self.predictions = [0]
+        self.indif_threshold = indif_threshold
+
+    def equity(self):
+        price = self.market.price()
+        return self.cash + self.assets * price
+
+    def income(self):
+        self.cash += self.assets * self.market.dividend()  # Dividend payments
+        self.cash += self.cash * self.market.risk_free_rate  # Interest payment
+
+    def draw_quantity(self, side: int = 0):
+        if side: return self.assets
+        return self.cash // self.market.order_book['ask'].last.price
+
+    def train(self, idx):
+        features = [getattr(self.info, feature)[idx] for feature in self.features]
+        prices = self.info.prices[idx]
+        data = pd.DataFrame({f'feature{i + 1}': feat for i, feat in enumerate(features)})
+        data['price'] = pd.Series(prices)
+
+        # we are predicting the price change on the next tick, so shift is -1
+        future_prices = data['price'].shift(-1)
+        signs = sign(future_prices - data['price'])
+        data['target'] = 1 + ((abs((future_prices - data['price']) / data['price']) > self.indif_threshold).astype(int) * signs).fillna(0).astype(int)
+        data.dropna(subset=['target'], inplace=True)
+        X = data.drop('target', axis=1)
+        y = data['target']
+
+        try:
+            self.model.get_booster()
+            is_trained = True
+        except NotFittedError:
+            is_trained = False
+
+        if is_trained:
+            self.model.fit(X, y, xgb_model=self.model.get_booster())
+        else:
+            self.model.fit(X, y)
+
+    def update_info(self, info):
+        self.info = info
+
+    def get_prediction(self, idx=1):
+        prices = self.info.prices.copy()[idx][-1:]
+        features = [getattr(self.info, name).copy()[idx][-1:] for name in self.features]
+        data = pd.DataFrame({f'feature{i + 1}': feat for i, feat in enumerate(features)})
+        data['price'] = prices
+        y_pred = self.model.predict(data)[0] - 1
+        self.predictions.append(y_pred)
+        return y_pred
+
+    def call(self):
+        if not self.active:
+            return
+
+        if len(self.info.prices) == 0:
+            # cannot predict as this is the first tick
+            return
+
+        prediction = self.get_prediction()
+
+        if prediction == 0:
+            # do nothing if flat is predicted
+            pass
+
+        if prediction == -1 and self.assets >= 0:
+            if self.assets > 0:
+                # sell existing assets
+                qty = self.assets
+                self._sell_market(qty)
+
+            if self.assets == 0:
+                # enter short
+                qty = self.draw_quantity(1)
+                self._sell_market(qty)
+
+        if prediction == 1 and self.assets <= 0:
+            if self.assets < 0:
+                # close short
+                qty = -1 * self.assets
+                self._buy_market(qty)
+
+            if self.assets == 0:
+                # open long
+                qty = self.draw_quantity(side=1)
+                self._buy_market(qty)
+
+        if self.orders:
+            self._cancel_order(self.orders[0])
+
+    def _buy_market(self, quantity) -> int:
+        """
+        :return: quantity unfulfilled
+        """
+        if not self.market.order_book['ask']:
+            return quantity
+
+        price = self.market.order_book['ask'].last.price
+        order = Order(price, round(quantity), 'bid', self)
+        return self.market.market_order(order).qty
+
+    def _sell_market(self, quantity) -> int:
+        """
+        :return: quantity unfulfilled
+        """
+        if not self.market.order_book['bid']:
+            return quantity
+
         price = self.market.order_book['bid'].last.price
         order = Order(price, round(quantity), 'ask', self)
         return self.market.market_order(order).qty

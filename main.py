@@ -27,11 +27,15 @@ assets = [
 exchanges = [
     ExchangeAgent(assets[0], risk_free_rate) for i in range(3)  # single asset
 ]
+
+features = ['smart_pr', 'prets', 'tr_signs']
+
 traders = [
     *[Random(exchanges[randint(0, 2)])         for _ in range(20)],
     *[Fundamentalist(exchanges[randint(0, 2)]) for _ in range(20)],
     *[Chartist2D(exchanges)                    for _ in range(20)],
-    *[MarketMaker2D(exchanges)                 for _ in range(4)]
+    *[MarketMaker2D(exchanges)                 for _ in range(4)],
+    *[PredictingTrader(exchanges[1], features)           for _ in range(1)]
 ]
 
 # Run simulation
@@ -44,10 +48,10 @@ simulator = Simulator(**{
 
 plot_orderbook_with_depth(0.02, simulator.info, exchange_ind=1)
 
-simulator.simulate(100, silent=False)
+simulator.simulate(150, silent=False)
 
-plot_feature_chronology(simulator.info, 1)
-plot_feature_distributions(simulator.info, 1)
+# plot_feature_chronology(simulator.info, 1)
+# plot_feature_distributions(simulator.info, 1)
 
 # print(len(simulator.info.trades[0]))
 
