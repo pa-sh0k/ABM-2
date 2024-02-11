@@ -28,7 +28,7 @@ exchanges = [
     ExchangeAgent(assets[0], risk_free_rate) for i in range(3)  # single asset
 ]
 
-features = ['smart_pr', 'prets', 'tr_signs']
+features = ['smart_pr', 'tr_signs']
 
 pred_trader = PredictingTrader(exchanges[1], features)
 traders = [
@@ -44,11 +44,11 @@ for _ in range(5):
         'assets': assets,
         'exchanges': exchanges,
         'traders': traders,
-        'events': [MarketPriceShock(0, 200, -10)]
+        'events': []
     })
-    simulator.simulate(200, silent=False)
+    simulator.simulate(250, silent=False)
     pred_trader.train(1)
-    seed += 1
+    seed += 2
 
 pred_trader.active = True
 
@@ -56,9 +56,9 @@ simulator = Simulator(**{
         'assets': assets,
         'exchanges': exchanges,
         'traders': traders,
-        'events': [MarketPriceShock(0, 200, -10)]
+        'events': []
     })
-simulator.simulate(200, silent=False)
+simulator.simulate(250, silent=False)
 
 print(f"FINAL ASSETS: {pred_trader.assets}")
 print(f"FINAL CASH: {pred_trader.cash}")

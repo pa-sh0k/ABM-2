@@ -123,7 +123,7 @@ class PredictingTrader(Trader):
         self.market = market
         self.features = features
         self.orders = list()
-        self.model = xgb.XGBClassifier(objective='binary:logistic', use_label_encoder=False, eval_metric='logloss')
+        self.model = xgb.XGBClassifier(objective='multi:softmax', use_label_encoder=False, eval_metric='logloss', num_class=3)
         self.info = None
         self.active = False
         self.predictions = [0]
