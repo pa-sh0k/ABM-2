@@ -109,13 +109,13 @@ class PredictingTrader(Trader):
             features: List,
             cash: float | int = 10 ** 2,
             assets: int = 0,
-            indif_threshold: float = 0.0001
+            indif_threshold: float = 0.001
     ):
         """PredictingTrader trades on a single exchange and uses XGBoost for predicting the price movement, uses only market orders
 
         :param market: link to exchange agent
         :param features: list of features based on which PredictingTrader makes predictions
-        :param cash: trader's cash available, defaults 10**3
+        :param cash: trader's cash available, defaults 10**2
         :param assets: trader's number of shares, defaults 0
         :param indif_threshold: maximum absolute price change for which we assume that the flat continues
         """
@@ -138,7 +138,9 @@ class PredictingTrader(Trader):
         self.cash += self.cash * self.market.risk_free_rate  # Interest payment
 
     def draw_quantity(self, side: int = 0):
-        if side: return self.assets
+        if not side:
+            return self.assets
+
         return self.cash // self.market.order_book['ask'].last.price
 
     def train(self, idx):
@@ -169,7 +171,7 @@ class PredictingTrader(Trader):
     def update_info(self, info):
         self.info = info
 
-    def get_prediction(self, idx=1):
+    def get_prediction(self, idx=0):
         prices = self.info.prices.copy()[idx][-1:]
         features = [getattr(self.info, name).copy()[idx][-1:] for name in self.features]
         data = pd.DataFrame({f'feature{i + 1}': feat for i, feat in enumerate(features)})
