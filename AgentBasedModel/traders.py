@@ -134,14 +134,23 @@ class PredictingTrader(Trader):
         return self.cash + self.assets * price
 
     def income(self):
-        self.cash += self.assets * self.market.dividend()  # Dividend payments
-        self.cash += self.cash * self.market.risk_free_rate  # Interest payment
+        if self.active:
+            self.cash += self.assets * self.market.dividend()  # Dividend payments
+            self.cash += self.cash * self.market.risk_free_rate  # Interest payment
 
     def draw_quantity(self, side: int = 0):
         if not side:
             return self.assets
+        return self.cash / self.market.order_book['ask'].first.price
 
-        return self.cash // self.market.order_book['ask'].last.price
+    def get_target(self, idx):
+        prices = self.info.prices[idx]
+        data = pd.DataFrame()
+        data['price'] = pd.Series(prices)
+        future_prices = data['price'].shift(-1)
+        signs = sign(future_prices - data['price'])
+        data['target'] = 1 + ((abs((future_prices - data['price']) / data['price']) > self.indif_threshold).astype(int) * signs).fillna(0).astype(int)
+        return list(data['target'])
 
     def train(self, idx):
         features = [getattr(self.info, feature)[idx] for feature in self.features]
@@ -184,10 +193,6 @@ class PredictingTrader(Trader):
         if not self.active:
             return
 
-        if len(self.info.prices) == 0:
-            # cannot predict as this is the first tick
-            return
-
         prediction = self.get_prediction()
 
         if prediction == 0:
@@ -227,7 +232,7 @@ class PredictingTrader(Trader):
             return quantity
 
         price = self.market.order_book['ask'].last.price
-        order = Order(price, round(quantity), 'bid', self)
+        order = Order(price, quantity, 'bid', self)
         return self.market.market_order(order).qty
 
     def _sell_market(self, quantity) -> int:
@@ -238,7 +243,7 @@ class PredictingTrader(Trader):
             return quantity
 
         price = self.market.order_book['bid'].last.price
-        order = Order(price, round(quantity), 'ask', self)
+        order = Order(price, quantity, 'ask', self)
         return self.market.market_order(order).qty
 
     def _cancel_order(self, order: Order):

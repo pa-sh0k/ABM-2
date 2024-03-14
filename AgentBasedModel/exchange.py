@@ -75,7 +75,8 @@ class ExchangeAgent:
     def __init__(
             self,
             asset: Type[Asset],                                             # traded asset
-            risk_free_rate: float = 5e-4, transaction_cost: float = 0,      # economy rates
+            # risk_free_rate: float = 5e-4, transaction_cost: float = 0,      # economy rates
+            risk_free_rate: float = 0, transaction_cost: float = 0,      # economy rates
             mean: float | int = None, std: float | int = 25, n: int = 1000  # order book initialization
         ):
         """Creates ExchangeAgent with initialised order book and future dividends
