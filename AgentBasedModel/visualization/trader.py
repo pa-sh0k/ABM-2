@@ -3,6 +3,7 @@ import AgentBasedModel.utils.math as math
 
 import matplotlib.pyplot as plt
 
+
 # **(DEPRECATED)**
 def plot_equity(info: SimulatorInfo, rolling: int = 1, figsize=(6, 6)):
     """

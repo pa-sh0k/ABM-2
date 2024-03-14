@@ -15,7 +15,7 @@ class Simulation:
         self.tick_number = tick_number
         self.risk_free_rate = daily_risk_free_rate / tick_number
         self.starting_price = price
-        self.dividend = price * self.risk_free_rate * 2
+        self.dividend = price * self.risk_free_rate * 1.1
         self.assets = [Stock(self.dividend) for _ in range(1)]
         self.exchanges = [ExchangeAgent(self.assets[0], self.risk_free_rate, mean=price) for i in range(1)]
         self.pred_traders = [PredictingTrader(self.exchanges[0], features) for _ in range(pred_trader_count)]
@@ -40,7 +40,7 @@ class Simulation:
         return market_price_change, results, accuracy
 
     def yield_simulator(self):
-        traders = [
+        self.traders = [
             *[Random(self.exchanges[0]) for _ in range(self.random_count)],
             *[Fundamentalist(self.exchanges[0]) for _ in range(self.fundamentalist_count)],
             *[Chartist2D(self.exchanges) for _ in range(self.chartist_count)],
@@ -50,7 +50,7 @@ class Simulation:
         simulator = Simulator(**{
             'assets': self.assets,
             'exchanges': self.exchanges,
-            'traders': traders,
+            'traders': self.traders,
             'events': []
         })
 
@@ -94,10 +94,9 @@ def create_plot(parameter_string, mode='pnl'):
 def simulate_and_save(parameter_string):
     random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count = [int(item) for item in parameter_string.split('-')]
 
-    simulation = Simulation(random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, 7, 1)
+    simulation = Simulation(random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, 5, 1)
     simulation.train()
     market_change, results, accuracy = simulation.trade()
-
     with open('results.json', 'r') as f:
         res = json.loads(f.read())
 
@@ -107,10 +106,7 @@ def simulate_and_save(parameter_string):
     with open('results.json', 'w') as f:
         f.write(json.dumps(res))
 
-
-# simulate_and_save("30-5-5-10-1")
-create_plot("30-5-5-10-1", "pnl")
-create_plot("30-5-5-10-1", "accuracy")
+    return simulation
 
 
-
+siml = simulate_and_save("30-5-5-3-1")

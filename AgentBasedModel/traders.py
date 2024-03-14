@@ -66,12 +66,12 @@ class SingleTrader(Trader):
         self.cash += self.cash   * self.market.risk_free_rate  # Interest payment
 
     def _buy_limit(self, quantity, price):
-        order = Order(round(price, 1), round(quantity), 'bid', self)
+        order = Order(round(price, 1), round(quantity, 2), 'bid', self)
         self.orders.append(order)
         self.market.limit_order(order)
 
     def _sell_limit(self, quantity, price):
-        order = Order(round(price, 1), round(quantity), 'ask', self)
+        order = Order(round(price, 1), round(quantity, 2), 'ask', self)
         self.orders.append(order)
         self.market.limit_order(order)
 
@@ -83,7 +83,7 @@ class SingleTrader(Trader):
             return quantity
         
         price = self.market.order_book['ask'].last.price
-        order = Order(price, round(quantity), 'bid', self)
+        order = Order(price, round(quantity, 2), 'bid', self)
         return self.market.market_order(order).qty
 
     def _sell_market(self, quantity) -> int:
@@ -94,7 +94,7 @@ class SingleTrader(Trader):
             return quantity
         
         price = self.market.order_book['bid'].last.price
-        order = Order(price, round(quantity), 'ask', self)
+        order = Order(price, round(quantity, 2), 'ask', self)
         return self.market.market_order(order).qty
 
     def _cancel_order(self, order: Order):
@@ -165,6 +165,10 @@ class PredictingTrader(Trader):
         data.dropna(subset=['target'], inplace=True)
         X = data.drop('target', axis=1)
         y = data['target']
+        vals = list(y.values)
+        print(vals.count(0) / len(vals))
+        print(vals.count(1) / len(vals))
+        print(vals.count(2) / len(vals))
 
         try:
             self.model.get_booster()
@@ -198,6 +202,14 @@ class PredictingTrader(Trader):
         if prediction == 0:
             # do nothing if flat is predicted
             pass
+            # if self.assets > 0:
+            #     # sell existing assets
+            #     qty = self.assets
+            #     self._sell_market(qty)
+            # if self.assets < 0:
+            #     # close short
+            #     qty = -1 * self.assets
+            #     self._buy_market(qty)
 
         if prediction == -1 and self.assets >= 0:
             if self.assets > 0:
@@ -232,7 +244,7 @@ class PredictingTrader(Trader):
             return quantity
 
         price = self.market.order_book['ask'].last.price
-        order = Order(price, quantity, 'bid', self)
+        order = Order(price, round(quantity, 2), 'bid', self)
         return self.market.market_order(order).qty
 
     def _sell_market(self, quantity) -> int:
@@ -243,7 +255,7 @@ class PredictingTrader(Trader):
             return quantity
 
         price = self.market.order_book['bid'].last.price
-        order = Order(price, quantity, 'ask', self)
+        order = Order(price, round(quantity, 2), 'ask', self)
         return self.market.market_order(order).qty
 
     def _cancel_order(self, order: Order):
@@ -278,12 +290,12 @@ class MultiTrader(Trader):
         self.cash += self.cash   * market.risk_free_rate  # Interest payment
 
     def _buy_limit(self, market_id, quantity, price):
-        order = Order(round(price, 1), round(quantity), 'bid', self)
+        order = Order(round(price, 1), round(quantity, 2), 'bid', self)
         self.orders[market_id].append(order)
         self.markets[market_id].limit_order(order)
 
     def _sell_limit(self, market_id, quantity, price):
-        order = Order(round(price, 1), round(quantity), 'ask', self)
+        order = Order(round(price, 1), round(quantity, 2), 'ask', self)
         self.orders[market_id].append(order)
         self.markets[market_id].limit_order(order)
 
@@ -295,7 +307,7 @@ class MultiTrader(Trader):
             return quantity
         
         price = self.markets[market_id].order_book['ask'].last.price
-        order = Order(price, round(quantity), 'bid', self)
+        order = Order(price, round(quantity, 2), 'bid', self)
         return self.markets[market_id].market_order(order).qty
 
     def _sell_market(self, market_id, quantity) -> int:
@@ -306,7 +318,7 @@ class MultiTrader(Trader):
             return quantity
         
         price = self.markets[market_id].order_book['bid'].last.price
-        order = Order(price, round(quantity), 'ask', self)
+        order = Order(price, round(quantity, 2), 'ask', self)
         return self.markets[market_id].market_order(order).qty
 
     def _cancel_order(self, market_id, order: Order):
@@ -890,7 +902,7 @@ class MarketMaker2D(MultiTrader):
             markets:   List[ExchangeAgent],
             cash:      float | int = 10**3,
             assets:    int = 0,
-            softlimit: int = 10
+            softlimit: int = 100
         ):
         """MarketMaker2D (multi exchange) creates limit orders on both sides of the glass
 

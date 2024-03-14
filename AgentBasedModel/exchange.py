@@ -156,7 +156,7 @@ class ExchangeAgent:
         """
         spread = self.spread()
         if spread:
-            return round((spread['bid'] + spread['ask']) / 2, 1)
+            return round((spread['bid'] + spread['ask']) / 2, 2)
         raise Exception(f'Price cannot be determined, since no orders either bid or ask')
 
     def ob_imb(self) -> float:
