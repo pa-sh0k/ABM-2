@@ -8,7 +8,7 @@ def get_classification_metrics(pred_trader):
     # print(real)
     # print(predicted)
 
-    real_data = np.array(real)
+    real_data = np.array(real[pred_trader.lag:])
     predicted_data = np.array(predicted)
 
     average_method = 'macro'

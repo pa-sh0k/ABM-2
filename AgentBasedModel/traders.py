@@ -107,6 +107,9 @@ class PredictingTrader(Trader):
             self,
             market: ExchangeAgent,
             features: List,
+            methods: List,
+            args: List,
+            lag: int = 10,
             cash: float | int = 10 ** 2,
             assets: int = 0,
             indif_threshold: float = 0.001
@@ -122,12 +125,15 @@ class PredictingTrader(Trader):
         super().__init__(cash, assets)
         self.market = market
         self.features = features
+        self.methods = methods
+        self.args = args
         self.orders = list()
         self.model = xgb.XGBClassifier(objective='multi:softmax', use_label_encoder=False, eval_metric='logloss', num_class=3)
         self.info = None
         self.active = False
         self.predictions = [0]
         self.indif_threshold = indif_threshold
+        self.lag = lag
 
     def equity(self):
         price = self.market.price()
@@ -153,22 +159,21 @@ class PredictingTrader(Trader):
         return list(data['target'])
 
     def train(self, idx):
-        features = [getattr(self.info, feature)[idx] for feature in self.features]
+        features = [getattr(self.info, feature)[idx][self.lag:-self.lag] for feature in self.features]
+        methods = [getattr(self.info, self.methods[i])(self.args[i])[:-self.lag] for i in range(len(self.methods))]
+        features += methods
         prices = self.info.prices[idx]
         data = pd.DataFrame({f'feature{i + 1}': feat for i, feat in enumerate(features)})
-        data['price'] = pd.Series(prices)
+        data['price'] = pd.Series(prices)[self.lag:-self.lag]
 
         # we are predicting the price change on the next tick, so shift is -1
-        future_prices = data['price'].shift(-1)
+        future_prices = data['price'].shift(-self.lag)[:-self.lag]
         signs = sign(future_prices - data['price'])
         data['target'] = 1 + ((abs((future_prices - data['price']) / data['price']) > self.indif_threshold).astype(int) * signs).fillna(0).astype(int)
         data.dropna(subset=['target'], inplace=True)
         X = data.drop('target', axis=1)
         y = data['target']
         vals = list(y.values)
-        print(vals.count(0) / len(vals))
-        print(vals.count(1) / len(vals))
-        print(vals.count(2) / len(vals))
 
         try:
             self.model.get_booster()
@@ -187,6 +192,9 @@ class PredictingTrader(Trader):
     def get_prediction(self, idx=0):
         prices = self.info.prices.copy()[idx][-1:]
         features = [getattr(self.info, name).copy()[idx][-1:] for name in self.features]
+        methods = [getattr(self.info, self.methods[i])(self.args[i])[-1:] for i in range(len(self.methods))]
+        features += methods
+
         data = pd.DataFrame({f'feature{i + 1}': feat for i, feat in enumerate(features)})
         data['price'] = prices
         y_pred = self.model.predict(data)[0] - 1
@@ -195,6 +203,8 @@ class PredictingTrader(Trader):
 
     def call(self):
         if not self.active:
+            return
+        if len(self.info.prices[0]) <= 10:
             return
 
         prediction = self.get_prediction()

@@ -8,17 +8,21 @@ from utils import get_classification_metrics
 random.seed(seed)
 
 features = ['smart_pr', 'tr_signs', 'prets', 'norm_spread']
+methods = ['rolling_ob_imbalance', 'rolling_signed_volume', 'window_aggressive_vol']
+args = [0, 0, 0]
+# methods = []
+# args = []
 
 
 class Simulation:
-    def __init__(self, random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, train_epochs, trade_epochs, tick_number=500, daily_risk_free_rate=2.5e-4, price=100):
+    def __init__(self, random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, methods, args, train_epochs, trade_epochs, tick_number=500, daily_risk_free_rate=2.5e-4, price=100):
         self.tick_number = tick_number
         self.risk_free_rate = daily_risk_free_rate / tick_number
         self.starting_price = price
         self.dividend = price * self.risk_free_rate * 1.1
         self.assets = [Stock(self.dividend) for _ in range(1)]
         self.exchanges = [ExchangeAgent(self.assets[0], self.risk_free_rate, mean=price) for i in range(1)]
-        self.pred_traders = [PredictingTrader(self.exchanges[0], features) for _ in range(pred_trader_count)]
+        self.pred_traders = [PredictingTrader(self.exchanges[0], features, methods, args) for _ in range(pred_trader_count)]
         self.random_count = random_count
         self.fundamentalist_count = fundamentalist_count
         self.chartist_count = chartist_count
@@ -94,7 +98,7 @@ def create_plot(parameter_string, mode='pnl'):
 def simulate_and_save(parameter_string):
     random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count = [int(item) for item in parameter_string.split('-')]
 
-    simulation = Simulation(random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, 5, 1)
+    simulation = Simulation(random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, methods, args, 5, 1)
     simulation.train()
     market_change, results, accuracy = simulation.trade()
     with open('results.json', 'r') as f:

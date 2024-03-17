@@ -300,7 +300,7 @@ class SimulatorInfo:
 
         return vwap
 
-    def rolling_ob_imbalance(self, idx: int, roll: int = 1) -> list:
+    def rolling_ob_imbalance(self, idx: int, roll: int = 10) -> list:
         """
         # Orderbook imbalances
         :param idx: ExchangeAgent id
@@ -311,17 +311,16 @@ class SimulatorInfo:
         window_length = min(roll, len(orders))
 
         ob_imb = []
-        for i in range(len(orders) - window_length + 1):
-            order_window = orders[i:i + window_length]
-
-            total_b = sum(order['bid'].first.qty for order in order_window)
-            total_a = sum(order['ask'].first.qty for order in order_window)
+        for i in range(window_length, len(orders)):
+            order_window = orders[i - window_length:i]
+            total_b = sum(order['bid'] for order in order_window)
+            total_a = sum(order['ask'] for order in order_window)
 
             ob_imb.append((total_b - total_a) / (total_b + total_a))
 
         return ob_imb
 
-    def rolling_signed_volume(self, idx: int, roll: int = 1) -> list:
+    def rolling_signed_volume(self, idx: int, roll: int = 10) -> list:
         """
         # Rolling signed volume
         :param idx: ExchangeAgent id
@@ -330,19 +329,20 @@ class SimulatorInfo:
 
         trades = self.trades[idx]
         window_length = min(roll, len(trades))
-
         signed_vol = []
-        for i in range(len(trades) - window_length + 1):
-            trades_window = trades[i:i + window_length]
-
-            total_b = sum(order['qty'] for order in trades_window if order['order_type'] == 'bid')
-            total_a = sum(order['qty'] for order in trades_window if order['order_type'] == 'ask')
+        for i in range(window_length, len(trades)):
+            trades_window = trades[i - window_length:i]
+            all_trades = list()
+            for _trades in trades_window:
+                all_trades += _trades
+            total_b = sum(order['qty'] for order in all_trades if order['order_type'] == 'bid')
+            total_a = sum(order['qty'] for order in all_trades if order['order_type'] == 'ask')
 
             signed_vol.append((total_b - total_a) / (total_b + total_a))
 
         return signed_vol
 
-    def window_aggressive_vol(self, idx: int, roll: int = 1, baseline: int = 300, side: int = 0) -> list:
+    def window_aggressive_vol(self, idx: int, roll: int = 10, baseline: int = 300, side: int = 0) -> list:
         """
         # Rolling aggressive volume
         :param idx: ExchangeAgent id
@@ -355,15 +355,19 @@ class SimulatorInfo:
         window_length = min(roll, len(trades))
 
         aggr_vol = []
-        for i in range(len(trades) - window_length + 1):
-            trades_window = trades[i:i + window_length]
+        for i in range(window_length, len(trades)):
+            trades_window = trades[i - window_length:i]
+
+            all_trades = list()
+            for _trades in trades_window:
+                all_trades += _trades
 
             if not side:
-                volume = sum([order['qty'] for order in trades_window if order['order_type'] == 'ask'])
-                orders = [order for order in trades_window if order['order_type'] == 'ask']
+                volume = sum([order['qty'] for order in all_trades if order['order_type'] == 'ask'])
+                orders = [order for order in all_trades if order['order_type'] == 'ask']
             else:
-                volume = sum([order['qty'] for order in trades_window if order['order_type'] == 'bid'])
-                orders = [order for order in trades_window if order['order_type'] == 'bid']
+                volume = sum([order['qty'] for order in all_trades if order['order_type'] == 'bid'])
+                orders = [order for order in all_trades if order['order_type'] == 'bid']
             aggr_vol_value = sum([order['qty'] / volume for order in orders if 10000 * order['qty'] / volume > baseline])
             aggr_vol.append(aggr_vol_value)
 
