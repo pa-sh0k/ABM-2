@@ -3,12 +3,13 @@ import numpy as np
 
 
 def get_classification_metrics(pred_trader):
-    real, predicted = pred_trader.get_target(0), pred_trader.predictions[:-1]
+    real, predicted = pred_trader.get_target(0), pred_trader.predictions[:-2]
+
     predicted = [i+1 for i in predicted]
     # print(real)
     # print(predicted)
 
-    real_data = np.array(real[pred_trader.lag:])
+    real_data = np.array(real)
     predicted_data = np.array(predicted)
 
     average_method = 'macro'

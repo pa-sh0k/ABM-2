@@ -151,29 +151,34 @@ class PredictingTrader(Trader):
 
     def get_target(self, idx):
         prices = self.info.prices[idx]
-        data = pd.DataFrame()
-        data['price'] = pd.Series(prices)
-        future_prices = data['price'].shift(-1)
-        signs = sign(future_prices - data['price'])
-        data['target'] = 1 + ((abs((future_prices - data['price']) / data['price']) > self.indif_threshold).astype(int) * signs).fillna(0).astype(int)
-        return list(data['target'])
+        price_series = pd.Series(prices)[self.lag:-self.lag]
+        future_prices = pd.Series(prices).shift(-self.lag)[self.lag:-self.lag]
+        signs = sign(future_prices - price_series)
+        target_series = 1 + ((abs((future_prices - price_series) / price_series) > self.indif_threshold).astype(int) * signs).fillna(0).astype(int)
+        return self.modify_array(target_series.to_list())
+
+    def modify_array(self, array: List):
+        return [array[i] for i in range(0, len(array), self.lag)]
 
     def train(self, idx):
         features = [getattr(self.info, feature)[idx][self.lag:-self.lag] for feature in self.features]
         methods = [getattr(self.info, self.methods[i])(self.args[i])[:-self.lag] for i in range(len(self.methods))]
         features += methods
-        prices = self.info.prices[idx]
-        data = pd.DataFrame({f'feature{i + 1}': feat for i, feat in enumerate(features)})
-        data['price'] = pd.Series(prices)[self.lag:-self.lag]
 
+        new_features = [self.modify_array(feature) for feature in features]
+        prices = self.info.prices[idx]
+
+        data = pd.DataFrame({f'feature{i + 1}': feat for i, feat in enumerate(new_features)})
+        price_series = pd.Series(prices)[self.lag:-self.lag]
         # we are predicting the price change on the next tick, so shift is -1
-        future_prices = data['price'].shift(-self.lag)[:-self.lag]
-        signs = sign(future_prices - data['price'])
-        data['target'] = 1 + ((abs((future_prices - data['price']) / data['price']) > self.indif_threshold).astype(int) * signs).fillna(0).astype(int)
+        future_prices = pd.Series(prices).shift(-self.lag)[self.lag:-self.lag]
+        signs = sign(future_prices - price_series)
+        target_series = 1 + ((abs((future_prices - price_series) / price_series) > self.indif_threshold).astype(int) * signs).fillna(0).astype(int)
+        data['target'] = self.modify_array(target_series.to_list())
+        data['price'] = self.modify_array(price_series.to_list())
         data.dropna(subset=['target'], inplace=True)
         X = data.drop('target', axis=1)
         y = data['target']
-        vals = list(y.values)
 
         try:
             self.model.get_booster()
@@ -205,6 +210,9 @@ class PredictingTrader(Trader):
         if not self.active:
             return
         if len(self.info.prices[0]) <= 10:
+            return
+
+        if len(self.info.prices[0]) % 10 != 1:
             return
 
         prediction = self.get_prediction()

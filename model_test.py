@@ -98,7 +98,7 @@ def create_plot(parameter_string, mode='pnl'):
 def simulate_and_save(parameter_string):
     random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count = [int(item) for item in parameter_string.split('-')]
 
-    simulation = Simulation(random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, methods, args, 5, 1)
+    simulation = Simulation(random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, methods, args, 7, 1)
     simulation.train()
     market_change, results, accuracy = simulation.trade()
     with open('results.json', 'r') as f:
@@ -113,4 +113,6 @@ def simulate_and_save(parameter_string):
     return simulation
 
 
-siml = simulate_and_save("30-5-5-3-1")
+# siml = simulate_and_save("30-5-5-10-1")
+# create_plot("30-10-5-5-1", "accuracy")
+# create_plot("30-10-5-5-1", "pnl")
