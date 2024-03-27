@@ -103,11 +103,15 @@ def simulate_and_save(parameter_string):
     market_changes = []
     results = []
     accuracies = []
-    for i in range(10):
-        market_change, result, accuracy = simulation.trade()
-        market_changes.append(market_change)
-        results += result
-        accuracies.append(accuracy)
+    for i in range(50):
+        try:
+            market_change, result, accuracy = simulation.trade()
+            market_changes.append(market_change)
+            results += result
+            accuracies.append(accuracy)
+        except:
+            print("ERROR")
+            continue
     with open('new_results.json', 'r') as f:
         res = json.loads(f.read())
     if train_epochs in res[parameter_string]["accuracy"].keys():
@@ -129,7 +133,7 @@ def simulate_and_save(parameter_string):
     return simulation
 
 
-siml = simulate_and_save("30-5-5-10-1")
+siml = simulate_and_save("30-5-5-3-1")
 
 # create_plot("30-10-5-5-1", "accuracy")
 # create_plot("30-10-5-5-1", "pnl")

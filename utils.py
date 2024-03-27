@@ -16,10 +16,10 @@ def get_classification_metrics(pred_trader):
     average_method = 'macro'
 
     accuracy = accuracy_score(real_data, predicted_data)
-    precision = precision_score(real_data, predicted_data, average=average_method)
+    # precision = precision_score(real_data, predicted_data, average=average_method)
     # recall = recall_score(real_data, predicted_data, average=average_method)
 
-    return accuracy, precision, 0
+    return accuracy, 0, 0
 
 
 def get_seed():
