@@ -204,6 +204,9 @@ class PredictingTrader(Trader):
     def update_info(self, info):
         self.info = info
 
+    def get_feature_names(self):
+        return self.features + self.methods
+
     def get_prediction(self, idx=0):
         prices = self.info.prices.copy()[idx][-1:]
         features = [getattr(self.info, name).copy()[idx][-1:] for name in self.features]

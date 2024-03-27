@@ -95,6 +95,46 @@ def create_plot(parameter_string, mode='pnl'):
     plt.show()
 
 
+def create_plot_avg(parameter_string, mode='pnl'):
+    with open('new_results.json', 'r') as f:
+        res = json.loads(f.read())
+
+    epochs = list(range(2, 8))
+    data = [round(sum(res[parameter_string][mode][str(x)]) / len(res[parameter_string][mode][str(x)]), 3) for x in epochs]
+    plt.title(parameter_string)
+    plt.xlabel('Training Epochs')
+    plt.ylabel('% PnL' if mode == 'pnl' else 'Accuracy')
+    plt.plot(epochs, data)
+    plt.show()
+
+
+def create_plot_classes():
+    with open('new_results.json', 'r') as f:
+        res = json.loads(f.read())
+    fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(15, 20))
+
+    parameter_strings = ['30-10-5-5-1', '30-5-10-5-1', '30-5-5-10-1', '30-5-5-3-1']
+
+    for ax, param in zip(axes, parameter_strings):
+        сlasses = res[param]['classes']
+        keys = ["0", "1", "2"]
+        total = sum(сlasses.values())
+        values = [сlasses[key] for key in keys]
+
+        percentages = [(value / total) * 100 for value in values]
+
+        titles = ['down', 'flat', 'up']
+        plt.figure(figsize=(10, 6))
+        ax.bar(titles, percentages, color='blue')
+        ax.set_title(param)
+        ax.set_xlabel('Value')
+        ax.set_ylabel('Frequency')
+        ax.grid(False)
+
+    plt.tight_layout()
+    plt.show()
+
+
 def simulate_and_save(parameter_string):
     random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count = [int(item) for item in parameter_string.split('-')]
     train_epochs = "7"
@@ -112,8 +152,12 @@ def simulate_and_save(parameter_string):
         except:
             print("ERROR")
             continue
+
     with open('new_results.json', 'r') as f:
         res = json.loads(f.read())
+    # if "importance" not in res[parameter_string].keys():
+    #     res[parameter_string]["importance"] = {}
+    # res[parameter_string]["accuracy"][train_epochs] = [float(x) for x in simulation.pred_traders[0].model.feature_importances_]
     if train_epochs in res[parameter_string]["accuracy"].keys():
         res[parameter_string]["accuracy"][train_epochs] += accuracies
     else:
@@ -133,7 +177,9 @@ def simulate_and_save(parameter_string):
     return simulation
 
 
-siml = simulate_and_save("30-5-5-3-1")
+# siml = simulate_and_save("30-10-5-5-1")
+#
+# create_plot_avg("30-5-5-10-1", "accuracy")
+# create_plot_avg("30-5-5-10-1", "pnl")
 
-# create_plot("30-10-5-5-1", "accuracy")
-# create_plot("30-10-5-5-1", "pnl")
+# create_plot_classes()
