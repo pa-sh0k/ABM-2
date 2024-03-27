@@ -1,5 +1,6 @@
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score, roc_curve
 import numpy as np
+import json
 
 
 def get_classification_metrics(pred_trader):
@@ -16,6 +17,19 @@ def get_classification_metrics(pred_trader):
 
     accuracy = accuracy_score(real_data, predicted_data)
     precision = precision_score(real_data, predicted_data, average=average_method)
-    recall = recall_score(real_data, predicted_data, average=average_method)
+    # recall = recall_score(real_data, predicted_data, average=average_method)
 
-    return accuracy, precision, recall
+    return accuracy, precision, 0
+
+
+def get_seed():
+    with open("config.json", "r") as f:
+        conf = json.loads(f.read())
+
+    return conf['seed']
+
+
+def increment_seed(val):
+    seed = get_seed() + val
+    with open('config.json', 'w') as f:
+        f.write(json.dumps({"seed": seed}))

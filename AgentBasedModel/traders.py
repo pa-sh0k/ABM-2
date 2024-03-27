@@ -134,6 +134,7 @@ class PredictingTrader(Trader):
         self.predictions = [0]
         self.indif_threshold = indif_threshold
         self.lag = lag
+        self.counter = {"0": 0, "1": 0, "2": 0}
 
     def equity(self):
         price = self.market.price()
@@ -148,6 +149,11 @@ class PredictingTrader(Trader):
         if not side:
             return self.assets
         return self.cash / self.market.order_book['ask'].first.price
+
+    def reset(self):
+        self.cash = 100
+        self.predictions = [0]
+        self.assets = 0
 
     def get_target(self, idx):
         prices = self.info.prices[idx]
@@ -174,7 +180,11 @@ class PredictingTrader(Trader):
         future_prices = pd.Series(prices).shift(-self.lag)[self.lag:-self.lag]
         signs = sign(future_prices - price_series)
         target_series = 1 + ((abs((future_prices - price_series) / price_series) > self.indif_threshold).astype(int) * signs).fillna(0).astype(int)
-        data['target'] = self.modify_array(target_series.to_list())
+        target_list = target_series.to_list()
+        self.counter["0"] += target_list.count(0)
+        self.counter["1"] += target_list.count(1)
+        self.counter["2"] += target_list.count(2)
+        data['target'] = self.modify_array(target_list)
         data['price'] = self.modify_array(price_series.to_list())
         data.dropna(subset=['target'], inplace=True)
         X = data.drop('target', axis=1)

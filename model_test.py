@@ -1,11 +1,11 @@
 from AgentBasedModel import *
 import random
-from config import seed
 import matplotlib.pyplot as plt
 import json
-from utils import get_classification_metrics
+from utils import get_classification_metrics, get_seed, increment_seed
 
-random.seed(seed)
+
+random.seed(get_seed())
 
 features = ['smart_pr', 'tr_signs', 'prets', 'norm_spread']
 methods = ['rolling_ob_imbalance', 'rolling_signed_volume', 'window_aggressive_vol']
@@ -61,16 +61,16 @@ class Simulation:
         return simulator
 
     def train(self):
-        global seed
         for _ in range(self.train_epochs):
             simulator = self.yield_simulator()
             simulator.simulate(self.tick_number, silent=False)
             for pred_trader in self.pred_traders:
                 pred_trader.train(0)
-            seed += 2
+            increment_seed(2)
 
     def trade(self):
         for pred_trader in self.pred_traders:
+            pred_trader.reset()
             pred_trader.active = True
         initial_value = self.pred_traders[0].cash
         simulator = self.yield_simulator()
@@ -97,22 +97,39 @@ def create_plot(parameter_string, mode='pnl'):
 
 def simulate_and_save(parameter_string):
     random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count = [int(item) for item in parameter_string.split('-')]
-
-    simulation = Simulation(random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, methods, args, 7, 1)
+    train_epochs = "7"
+    simulation = Simulation(random_count, fundamentalist_count, chartist_count, mm_count, pred_trader_count, features, methods, args, int(train_epochs), 1)
     simulation.train()
-    market_change, results, accuracy = simulation.trade()
-    with open('results.json', 'r') as f:
+    market_changes = []
+    results = []
+    accuracies = []
+    for i in range(10):
+        market_change, result, accuracy = simulation.trade()
+        market_changes.append(market_change)
+        results += result
+        accuracies.append(accuracy)
+    with open('new_results.json', 'r') as f:
         res = json.loads(f.read())
+    if train_epochs in res[parameter_string]["accuracy"].keys():
+        res[parameter_string]["accuracy"][train_epochs] += accuracies
+    else:
+        res[parameter_string]["accuracy"][train_epochs] = accuracies
 
-    res[parameter_string]["accuracy"].append(accuracy)
-    res[parameter_string]["pnl"].append(results[0])
+    if train_epochs in res[parameter_string]["pnl"].keys():
+        res[parameter_string]["pnl"][train_epochs] += results
+    else:
+        res[parameter_string]["pnl"][train_epochs] = results
 
-    with open('results.json', 'w') as f:
+    for _class in ["0", "1", "2"]:
+        res[parameter_string]["classes"][_class] += simulation.pred_traders[0].counter[_class]
+
+    with open('new_results.json', 'w') as f:
         f.write(json.dumps(res))
 
     return simulation
 
 
-# siml = simulate_and_save("30-5-5-10-1")
+siml = simulate_and_save("30-5-5-10-1")
+
 # create_plot("30-10-5-5-1", "accuracy")
 # create_plot("30-10-5-5-1", "pnl")

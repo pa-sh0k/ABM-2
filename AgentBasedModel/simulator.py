@@ -11,8 +11,8 @@ from AgentBasedModel.traders import (
 )
 from AgentBasedModel.extra import Event
 from AgentBasedModel.utils.math import mean, std, rolling
-from config import seed
 import random
+from utils import get_seed, increment_seed
 from tqdm import tqdm
 
 
@@ -36,9 +36,8 @@ class Simulator:
         self.info = SimulatorInfo(exchanges, traders)
 
     def simulate(self, n_iter: int, silent: bool = False) -> object:
-        global seed
         for it in tqdm(range(n_iter), desc='Simulation', disable=silent):
-            random.seed(seed)
+            random.seed(get_seed())
             # Call scenario
             if self.events:
                 for event in self.events:
@@ -68,7 +67,7 @@ class Simulator:
             # Update assets
             for asset in self.assets:
                 asset.update()  # generate next dividend
-            seed += 1
+            increment_seed(1)
         return self
 
 
